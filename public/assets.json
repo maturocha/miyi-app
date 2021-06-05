@@ -2,7 +2,7 @@
   "js/1.js": "js/1.bundle.ae0e97d0c5aa606051ec.js",
   "js/10.js": "js/10.bundle.29bc28053c7b4e8ec31b.js",
   "js/11.js": "js/11.bundle.bd497f5d165ec57a0ae9.js",
-  "js/12.js": "js/12.bundle.65f323ef65056a91515a.js",
+  "js/12.js": "js/12.bundle.73a24c81636801517a9c.js",
   "js/13.js": "js/13.bundle.88442cd0b0a856d1d986.js",
   "js/14.js": "js/14.bundle.f655f8e74d9a47a3d965.js",
   "js/15.js": "js/15.bundle.0978a09dfdd34ca8b5db.js",
@@ -49,6 +49,6 @@
   "js/7.js": "js/7.bundle.5b2789155a66c44056aa.js",
   "js/8.js": "js/8.bundle.3d9a9f7a915e53976139.js",
   "js/9.js": "js/9.bundle.68941450d9963bb79e04.js",
-  "js/backoffice.js": "js/backoffice.bundle.167bbee52f036d623b2b.js",
+  "js/backoffice.js": "js/backoffice.bundle.cd398bffdc4a9628be59.js",
   "js/vendor.js": "js/vendor.bundle.fe5ca88cbe2d45e50762.js"
 }

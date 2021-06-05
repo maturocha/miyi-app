@@ -48,7 +48,7 @@ function Create(props) {
     const [formValues, setFormValues] = useState([]);
     const [message, setMessage] = useState({});
     const [expanded, setExpanded] = useState('customer');
-    const [orderID, setOrderID] = useState(16431);
+    const [orderID, setOrderID] = useState(null);
     const [customer, setCustomer] = useState(null);
     const [items, setItems] = useState([]);
     const [order, setOrder] = useState({
@@ -73,7 +73,7 @@ function Create(props) {
     //First render
     useEffect(() => {
         
-        //createOrder();
+        createOrder();
         
 
     }, []);
