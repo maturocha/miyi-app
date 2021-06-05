@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Order;
+use App\Order_details;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 
-class OrdersController extends Controller
+class OrdersDetailsController extends Controller
 {
     /**
      * List all resource.
@@ -34,22 +34,16 @@ class OrdersController extends Controller
     public function store(Request $request) : JsonResponse
     {
 
-        $userid = \Auth::id();
-        $today = Carbon::now()->timezone('America/Argentina/Buenos_Aires');
-
-        $order = Order::create([
-            'id_user' => $userid,
-            'date' => $today->format('Y-m-d H:i:s')
-            
+        $order = Order_details::create([
+            'id_order' => $request->input('id_order'),
+            'id_product' => $request->input('id_product'), 
+            'quantity' => $request->input('quantity'), 
+            'discount' => ($request->input('discount', '')) ? $request->input('discount', '') : 0, 
+            'price_unit' => $request->input('price_unit'), 
+            'price_final' => $request->input('price_final'),
         ]);
 
-        if ($order) {
-            $response = response()->json($order, 201);
-        } else {
-            $response = response()->json(['data' => 'Resource can not be created'], 500);
-        }
-
-        return $response;
+        return response()->json($order, 201);
         
     }
 
@@ -91,6 +85,9 @@ class OrdersController extends Controller
 
         $attributes = $request->all();
         
+        if ($request->has('date')) {
+           $attributes['date'] = Carbon::parse($request->input('date')); 
+        }   
         $order->fill($attributes);
         $order->update();
 
@@ -105,11 +102,11 @@ class OrdersController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, Order $order) : JsonResponse
+    public function destroy(Request $request, $id) : JsonResponse
     {
-        $order->delete();
-
-        return response()->json($this->paginatedQuery($request));
+        
+        $detail = Order_details::destroy($id);
+        return response()->json($detail);
     }
 
     /**

@@ -1,1 +1,0 @@
-(window.webpackJsonp=window.webpackJsonp||[]).push([[32],{947:function(o,e,n){"use strict";n.r(e);var r=n(5),t=n.n(r),l=n(0),h=n.n(l),i=(n(2),n(878)),a=n.n(i);e.default=function(o){var e=o.color,n=o.highlightColor,r=t()(o,["color","highlightColor"]);return h.a.createElement(i.SkeletonTheme,{color:e,highlightColor:n},h.a.createElement(a.a,r))}}}]);

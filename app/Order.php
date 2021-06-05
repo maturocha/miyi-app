@@ -38,7 +38,7 @@ class Order extends Model
     return self::where('orders.id', '=', $id)
                 ->join('order_details','order_details.id_order','=','orders.id')
                 ->join('products','order_details.id_product','=','products.id')
-                ->select('products.id as id_product','products.name as product', 'order_details.quantity', 'order_details.price_unit', 'order_details.discount', 'order_details.price_final', 'order_details.id')
+                ->select('products.id as id_product','products.name', 'order_details.quantity', 'order_details.price_unit', 'order_details.discount', 'order_details.price_final', 'order_details.id')
                 
                 ->get();
 

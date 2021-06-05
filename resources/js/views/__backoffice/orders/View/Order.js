@@ -76,7 +76,7 @@ const Order = props => {
                     
                     color="textPrimary"
                   >
-                    Descuento: {values.discount}
+                    Descuento: {values.discount} %
                   </Typography>
                   <Typography
                     component="span"

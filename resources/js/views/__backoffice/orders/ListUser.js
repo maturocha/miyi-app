@@ -1,18 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 
-import {
-    IconButton,
-    Menu,
-    MenuItem
-} from '@material-ui/core';
-
-import {
-    ArrowDropDown as ArrowDropDownIcon
-} from '@material-ui/icons';
-
-import * as NavigationUtils from '../../../helpers/Navigation';
 import * as UrlUtils from '../../../helpers/URL';
-import { Table } from '../../../ui';
+import { Table, MenuList } from '../../../ui';
 import { Master as MasterLayout } from '../layouts';
 import { Order } from '../../../models';
 import { AppContext } from '../../../AppContext';
@@ -28,16 +17,7 @@ function List(props) {
     const [message, setMessage] = useState({});
     const [alert, setAlert] = useState({});
 
-    const [anchorEl, setAnchorEl] = React.useState(null);
-  const open = Boolean(anchorEl);
 
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
 
     /**
      * Event listener that is triggered when a resource delete button is clicked.
@@ -439,68 +419,7 @@ function List(props) {
                 }).split(' ').join(' '),
                 customer: order.customer,
                 total: `$ ${order.total}`,
-                actions: (
-                    <div style={{ width: 120, flex: 'no-wrap' }}>
-                        <IconButton
-                         
-                            onClick={handleClick}
-                        >
-                            <ArrowDropDownIcon />
-                        </IconButton>
-                        <Menu
-                            id="long-menu"
-                            anchorEl={anchorEl}
-                            keepMounted
-                            open={open}
-                            onClose={handleClose}
-                            PaperProps={{
-                            style: {
-                                maxHeight: 48 * 4.5,
-                                width: '20ch',
-                            },
-                            }}
-                        >
-                            <MenuItem
-                                 onClick={() =>
-                                    history.push(
-                                        NavigationUtils.route(
-                                            'backoffice.general.orders.view',
-                                            {
-                                                id: order.id,
-                                            },
-                                        ),
-                                    )
-                                }
-                            >Ver</MenuItem>
-                            <MenuItem
-                                 onClick={() =>
-                                    history.push(
-                                        NavigationUtils.route(
-                                            'backoffice.general.orders.edit',
-                                            {
-                                                id: order.id,
-                                            },
-                                        ),
-                                    )
-                                }
-                            >Editar</MenuItem>
-                            <MenuItem>Imprimir</MenuItem>
-                            <MenuItem
-                             onClick={() =>
-                                history.push(
-                                    NavigationUtils.route(
-                                        'backoffice.general.orders.delete',
-                                        {
-                                            id: order.id,
-                                        },
-                                    ),
-                                )
-                            }
-                            >Eliminar</MenuItem>
-                        </Menu>
-                     
-                        
-                    </div>
+                actions: ( <MenuList history={history} idOrder={order.id} />
                 ),
             };
         });

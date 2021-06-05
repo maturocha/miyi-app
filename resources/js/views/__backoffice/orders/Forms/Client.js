@@ -82,6 +82,7 @@ const Client = props => {
     return (
        <>
         <Select
+            inputProps={{autoComplete: 'off', autoCorrect: 'off', spellCheck: 'off' }}
             autoFocus
             styles={customStyles}
             value={customer ? {

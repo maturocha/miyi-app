@@ -21,8 +21,8 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 
 import * as NavigationUtils from '../../../helpers/Navigation';
-import { Meetup } from '../../../models';
-import { Order } from '../../../models';
+import { Order, OrderDetails } from '../../../models';
+
 import { LinearIndeterminate } from '../../../ui/Loaders';
 import { Master as MasterLayout } from '../layouts';
 
@@ -43,15 +43,12 @@ import {
 import { ClientForm, ItemsForm } from './Forms';
 
 function Create(props) {
+    const { history } = props;
     const [loading, setLoading] = useState(false);
     const [formValues, setFormValues] = useState([]);
     const [message, setMessage] = useState({});
-    const [test, setTest] = useState(null);
     const [expanded, setExpanded] = useState('customer');
-    const _isMounted = useRef(true)
-
-    const { history } = props;
-    const [orderID, setOrderID] = useState('?');
+    const [orderID, setOrderID] = useState(16431);
     const [customer, setCustomer] = useState(null);
     const [items, setItems] = useState([]);
     const [order, setOrder] = useState({
@@ -61,7 +58,6 @@ function Create(props) {
         discount: "",
         payment_method: ""
     });
-
 
     const createOrder = async () => {
         setLoading(true);
@@ -74,7 +70,7 @@ function Create(props) {
         }
     };
 
-
+    //First render
     useEffect(() => {
         
         //createOrder();
@@ -82,14 +78,21 @@ function Create(props) {
 
     }, []);
 
+
     useEffect(() => {
-        if (order.total_bruto > 0)
-            calculateTotal()
+        if (customer) {
+            if (items.length == 0) {
+                calculateTotal(false)
+            } else {
+                calculateTotal()
+            }
+        }
+            
 
     }, [order.total_bruto]);
 
     useEffect(() => {
-        if ((order.total_bruto > 0) && (order.discount > 0))
+        if (customer)
             calculateTotal(false)
 
     }, [order.discount]);
@@ -131,8 +134,18 @@ function Create(props) {
     }
   
     
-    const handleChange = (panel) => (event, isExpanded) => {
-        setExpanded(isExpanded ? panel : false);
+    const handleChangePanel = (panel) => (event, isExpanded) => {
+        if (customer) {
+            setExpanded(isExpanded ? panel : false);
+        } else {
+              
+            setMessage({
+                type: 'error',
+                body: 'Debe elegir un cliente primero',
+                closed: () => setMessage({}),
+            });
+        }
+            
     };
 
 
@@ -146,7 +159,7 @@ function Create(props) {
      *
      * @return {undefined}
      */
-    const handleChangeCustomer = selectedOption => {
+    const handleChangePanelCustomer = selectedOption => {
         setCustomer(selectedOption);
         setExpanded('items');
     }
@@ -172,38 +185,102 @@ function Create(props) {
         )
     }
 
-    /**
-     * Handle form submit, this should send an API response
-     * to create a meetup.
-     *
-     * @param {object} values
-     *
-     * @param {object} form
-     *
-     * @return {undefined}
-     */
-    const handleSubmit = async (values, { setSubmitting, setErrors }) => {
-        setSubmitting(false);
+    const { classes, ...other } = props;
+
+    const renderClientSearch = () => {
+        
+        return (
+            <ClientForm
+                {...other}
+                customer={customer}
+                setCustomer={handleChangePanelCustomer}
+            />
+        );
+    };
+
+
+    const deleteItemsFromOrder = async (index) => {
+
+        let id = items[index].id
+        const details = await OrderDetails.delete(id);
+
+        setOrder(
+            prevState => ({ 
+                ...prevState,
+                total_bruto: Number((parseFloat(prevState.total_bruto) - parseFloat(items[index].price_final)).toFixed(2)) 
+            })
+        );
+        setMessage({
+            type: 'success',
+            body: '"'+items[index].name +'" eliminado',
+            closed: () => setMessage({}),
+        });
+        setItems(
+            (prevState) => {
+                prevState.splice(index, 1);
+                return([ ...prevState ]);
+              }
+        );
+        
+    }
+
+
+
+
+    const addItemsToOrder = async (item) => {
+
+        //Add item to order backend
+        let values = {... item}
+        values.id_order = orderID;
+
+        let details = await OrderDetails.store(values);
+        let new_item = {...item, ...details }
+        
+        setItems(
+            (prevState) => {
+              prevState.push(new_item);
+              return([ ...prevState ]);
+            }
+          );
+
+          setOrder(
+            prevState => ({ 
+                ...prevState,
+                total_bruto: Number((parseFloat(prevState.total_bruto) + parseFloat(details.price_final)).toFixed(2)) 
+            })
+          );
+
+          setMessage({
+            type: 'success',
+            body: '"'+item.name +'" agregado',
+            closed: () => setMessage({}),
+        });
+
+
+    }
+
+    const saveOrder = async () => {
 
         setLoading(true);
         try {
-
-
-            const meetup = await Meetup.store(values);
+            let values = {...order}
+            values.id_customer = customer.id;
+    
+            const updatedOrder = await Order.update(orderID, {
+                ...values
+            });
             
             setMessage({
                 type: 'success',
-                body: 'Meetup "'+meetup.name +'" creada con éxito',
+                body: 'Orden "'+updatedOrder.id +'" creada con éxito',
                 closed: () => setMessage({}),
             });
 
             setLoading(false);
-            //setFormValues(newFormValues);
-            //setMeetup(meetup);
 
             history.push(
                 NavigationUtils.route(
-                    'backoffice.admin.meetups.index',
+                    'backoffice.general.orders.index',
                 ),
             )
 
@@ -219,66 +296,12 @@ function Create(props) {
 
             setLoading(false);
         }
-    };
-
-    const { classes, ...other } = props;
-
-    const renderClientSearch = () => {
-        
-        return (
-            <ClientForm
-                {...other}
-                customer={customer}
-                setCustomer={handleChangeCustomer}
-            />
-        );
-    };
 
 
-    const deleteItemsFromOrder = (index) => {
 
-        setOrder(
-            prevState => ({ 
-                ...prevState,
-                total_bruto: Number((parseFloat(prevState.total_bruto) - parseFloat(items[index].price_final)).toFixed(2)) 
-            })
-        );
-        setItems(
-            (prevState) => {
-                prevState.splice(index, 1);
-                return([ ...prevState ]);
-              }
-        );
-        
     }
 
 
-
-
-    const addItemsToOrder = (item) => {
-        
-        setItems(
-            (prevState) => {
-              prevState.push(item);
-              return([ ...prevState ]);
-            }
-          );
-
-          setOrder(
-            prevState => ({ 
-                ...prevState,
-                total_bruto: Number((parseFloat(prevState.total_bruto) + parseFloat(item.price_final)).toFixed(2)) 
-            })
-          );
-
-          setMessage({
-            type: 'success',
-            body: '"'+item.name +'" agregado',
-            closed: () => setMessage({}),
-        });
-
-
-    }
 
     const renderItemsSearch = () => {
         
@@ -305,7 +328,7 @@ function Create(props) {
             <div className={classes.pageContentWrapper}>
                 {loading && <LinearIndeterminate />}
 
-                <ExpansionPanel expanded={expanded === 'customer'} onChange={handleChange('customer')}>
+                <ExpansionPanel expanded={expanded === 'customer'} onChange={handleChangePanel('customer')}>
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <PersonIcon />
                         <Typography className={classes.heading}>
@@ -317,7 +340,7 @@ function Create(props) {
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
 
-                <ExpansionPanel expanded={expanded === 'items'} onChange={handleChange('items')}>
+                <ExpansionPanel expanded={expanded === 'items'} onChange={handleChangePanel('items')}>
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <ShoppingCartIcon />
                         <Typography className={classes.heading}>
@@ -351,7 +374,7 @@ function Create(props) {
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
 
-                <ExpansionPanel expanded={expanded === 'extras'} onChange={handleChange('extras')}>
+                <ExpansionPanel expanded={expanded === 'extras'} onChange={handleChangePanel('extras')}>
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <AddShoppingCartIcon />
                         <Typography className={classes.heading}>
@@ -408,19 +431,19 @@ function Create(props) {
                     </ExpansionPanelDetails>
                 </ExpansionPanel>
 
-                <ExpansionPanel expanded={expanded === 'comments'} onChange={handleChange('comments')}>
+                <ExpansionPanel expanded={expanded === 'comments'} onChange={handleChangePanel('comments')}>
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <InsertCommentIcon />
                         <Typography className={classes.heading}>
-                            Comentarios del pedido
+                        Notas del pedido
                         </Typography>
                     </ExpansionPanelSummary>
                     <ExpansionPanelDetails className={classes.panelDetails}>
                     <Grid item xs={12} sm={12}>
                         <TextField
-                            name="comments"
+                            name="notes"
                             onChange={(event) => handleInputChangeOrder(event.target, 'text') }
-                            label="Comentario"
+                            label="Notas"
                             multiline
                             fullWidth
                             variant="outlined"
@@ -440,16 +463,18 @@ function Create(props) {
                 </ExpansionPanel>
 
                 <Grid container className={classes.gridButtonsFooter} spacing={24}>
-                        <Grid item xs={6}>
-                            <Button variant="contained" color="primary">
-                                Finalizar Pedido
+                        <Grid item xs={12}>
+                            <Button 
+                                className={classes.ButtonsOrder}
+                                variant="contained" 
+                                color="primary"
+                                disabled={(order.total > 0) ? false : true}
+                                onClick={() => saveOrder()}
+                            >
+                                Guardar
                             </Button>
                         </Grid>   
-                        <Grid item xs={6}>
-                            <Button variant="contained" color="secondary">
-                                Cancelar Pedido
-                            </Button>
-                        </Grid>   
+                       
                 </Grid>   
 
                     
@@ -501,6 +526,11 @@ const styles = theme => ({
         margin: '8px',
         width: 'auto',
         alignItems: 'center'
+    },
+    ButtonsOrder : {
+ 
+        width: '100%',
+
     },
     panelTotal : {
         backgroundColor: 'rgb(9 202 0 / 12%)',

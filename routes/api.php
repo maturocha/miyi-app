@@ -51,6 +51,8 @@ Route::namespace('Api')->name('api.')->group(function () {
 
             Route::resource('orders', 'OrdersController');
 
+            Route::resource('details', 'OrdersDetailsController');
+
             Route::resource('customers', 'CustomersController');
 
             Route::resource('products', 'ProductsController');

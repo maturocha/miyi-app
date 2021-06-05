@@ -147,6 +147,7 @@ const Items = props => {
     updateSubtotal(0)
 
     let item = {
+      id_product: product.id,
       name: product.name,
       quantity: quantity,
       discount: discount,
@@ -212,6 +213,7 @@ const Items = props => {
               
             </DialogContentText>
             <AsyncSelect
+                inputProps={{autoComplete: 'off', autoCorrect: 'off', spellCheck: 'off' }}
                 autoFocus
                 cacheOptions
                 defaultOptions
@@ -235,7 +237,7 @@ const Items = props => {
                 <Grid item xs={6} sm={3}>
                   <Paper className={classes.info}>Precio: ${(typePrice == 'm') ? product.price_unit : product.price_min}</Paper>
                 </Grid>
-                <Grid item xs={12} sm={5}>
+                <Grid item xs={12} sm={3}>
                   <InputLabel htmlFor="quantity">
                                     Cantidad{' '}
                                     <span></span>
@@ -246,11 +248,12 @@ const Items = props => {
                       name="quantity"
                       type="number"
                       value={quantity}
+                      autoComplete='off'
                       onChange={(event) => updateQuantity(event.target.value)}
                       fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={5}>
+                <Grid item xs={12} sm={3}>
                   <InputLabel htmlFor="discount">
                       Descuento %{' '}
                       <span></span>
@@ -263,14 +266,15 @@ const Items = props => {
                       step={1}
                       max={100}
                       value={discount}
+                      autoComplete='off'
                       onChange={(event) => updateDiscount(event.target.value)}
                       fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={5}>
+                <Grid item xs={12} sm={3}>
                   <h3>Subtotal: $ {subtotal} </h3>
                 </Grid>
-                <Grid item xs={12} sm={2}>
+                <Grid item xs={12} sm={3}>
                  
                   <Button
                     fullWidth={true}
