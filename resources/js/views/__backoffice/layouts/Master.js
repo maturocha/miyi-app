@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import {
     AppBar,
+    Fab,
     CircularProgress,
     CssBaseline,
     Grid,
@@ -11,11 +12,13 @@ import {
     withStyles,
 } from '@material-ui/core';
 
+import * as NavigationUtils from '../../../helpers/Navigation';
+
 import { Breadcrumbs, Snackbar, Modal } from '../../../ui';
 import { LinearDeterminate } from '../../../ui/Loaders';
 import { Footer, Header, Sidebar } from '../partials';
 import { AppContext } from '../../../AppContext';
-import { Notification } from '../../../models';
+
 
 function Master(props) {
     const [minimized, setMinimized] = useState(false);
@@ -96,7 +99,7 @@ function Master(props) {
 
     const { nightMode } = useContext(AppContext);
 
-    const { classes, showBreadcrumbs, ...other } = props;
+    const { classes, showBreadcrumbs, floatingButton, ...other } = props;
 
     const {
         children,
@@ -205,6 +208,21 @@ function Master(props) {
                         )}
                     </main>
 
+                    {floatingButton &&
+                        <Fab 
+                            className={classNames(classes.fab, classes.fabGreen)} 
+                            color='inherit'
+                            onClick={() => history.push(
+                                    NavigationUtils.route(
+                                        floatingButton.route
+                                    ),
+                                )
+                            }
+                        >
+                            {floatingButton.icon}
+                        </Fab>
+                    }
+
                     <Footer />
                 </div>
             </div>
@@ -282,6 +300,20 @@ const styles = theme => ({
         flexDirection: 'column',
         overflowX: 'auto',
     },
+
+    fab: {
+        position: 'fixed',
+        bottom: theme.spacing.unit * 2,
+        right: theme.spacing.unit * 2,
+    },
+
+    fabGreen: {
+        color: theme.palette.common.white,
+        backgroundColor: theme.palette.green.main,
+        '&:hover': {
+          backgroundColor: theme.palette.green.main,
+        },
+      },
 
     content: {
         flex: 1,

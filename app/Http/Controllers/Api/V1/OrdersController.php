@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Order;
+use App\Order_details;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -64,7 +65,6 @@ class OrdersController extends Controller
     public function show($id) : JsonResponse
 
     {
-
         $order = Order::getByID($id);
         if ($order) {
             $order['details'] = Order::getDetailsByID($id);
@@ -107,6 +107,10 @@ class OrdersController extends Controller
      */
     public function destroy(Request $request, Order $order) : JsonResponse
     {
+        $ids = Order::getDetailsToDelete($order->id);
+
+        Order_details::destroy($ids);
+
         $order->delete();
 
         return response()->json($this->paginatedQuery($request));

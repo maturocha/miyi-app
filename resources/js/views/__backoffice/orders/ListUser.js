@@ -6,6 +6,8 @@ import { Master as MasterLayout } from '../layouts';
 import { Order } from '../../../models';
 import { AppContext } from '../../../AppContext';
 
+import AddIcon from '@material-ui/icons/Add';
+
 function List(props) {
     const [loading, setLoading] = useState(false);
     const [pagination, setPagination] = useState({});
@@ -27,17 +29,13 @@ function List(props) {
      *
      * @return {undefined}
      */
-    const handleDeleteClick = resourceId => {
+     const handleDeleteClick = resourceId => {
         setAlert({
             type: 'confirmation',
-            title: Lang.get('resources.delete_confirmation_title', {
-                name: 'User',
-            }),
-            body: Lang.get('resources.delete_confirmation_body', {
-                name: 'User',
-            }),
-            confirmText: Lang.get('actions.continue'),
-            confirmed: async () => await deleteUser(resourceId),
+            title: 'Borrando Venta',
+            body: 'Está seguro que quiere borrar la venta?',
+            confirmText: 'Sí',
+            confirmed: async () => await deleteOrder(resourceId),
             cancelled: () => setAlert({}),
         });
     };
@@ -132,64 +130,7 @@ function List(props) {
     };
 
     
-      /**
-     * Event listener that is triggered when a resource delete button is clicked.
-     * This should prompt for confirmation.
-     *
-     * @param {string} resourceId
-     *
-     * @return {undefined}
-     */
-    const handleInscriptionClick = orderId => {
-        setAlert({
-            type: 'confirmation',
-            title: 'Inscripción a order',
-            body: 'Confirma que se quiere inscribir',
-            confirmText: 'Inscribir',
-            cancelText: 'Cancelar',
-            confirmed: async () => await inscriptUser(orderId),
-            cancelled: () => setAlert({}),
-        });
-    };
-
-     /**
-     * This should send an API request to delete a resource.
-     *
-     * @param {string} resourceId
-     *
-     * @return {undefined}
-     */
-    const inscriptUser = async orderId => {
-        setLoading(true);
-
-        try {
-
-            let attr = {
-                id_order : orderId
-            }
-            let inscription = await Inscription.store(attr);
-
-            setLoading(false);
-            setAlert({});
-            setMessage({
-                type: 'success',
-                body: 'Inscripción exitosa',
-                closed: () => setMessage({}),
-                actionText: Lang.get('actions.undo'),
-                action: () => restoreUser(resourceId),
-            });
-        } catch (error) {
-            setLoading(false);
-            setAlert({});
-            setMessage({
-                type: 'error',
-                body: 'Error al inscribirte',
-                closed: () => setMessage({}),
-                actionText: 'Reintentar',
-                action: () => inscriptUser(orderId),
-            });
-        }
-    };
+   
 
     /**
      * This should send an API request to delete a resource.
@@ -198,23 +139,19 @@ function List(props) {
      *
      * @return {undefined}
      */
-    const deleteUser = async resourceId => {
+    const deleteOrder = async resourceId => {
         setLoading(true);
 
         try {
-            const pagination = await User.delete(resourceId);
+            const pagination = await Order.delete(resourceId);
 
             setLoading(false);
             setPagination(pagination);
             setAlert({});
             setMessage({
                 type: 'success',
-                body: Lang.get('resources.deleted', {
-                    name: 'User',
-                }),
-                closed: () => setMessage({}),
-                actionText: Lang.get('actions.undo'),
-                action: () => restoreUser(resourceId),
+                body: 'Venta borrada',
+                closed: () => setMessage({})
             });
         } catch (error) {
             setLoading(false);
@@ -419,7 +356,7 @@ function List(props) {
                 }).split(' ').join(' '),
                 customer: order.customer,
                 total: `$ ${order.total}`,
-                actions: ( <MenuList history={history} idOrder={order.id} />
+                actions: ( <MenuList history={history} idOrder={order.id} handleDeleteClick={handleDeleteClick} />
                 ),
             };
         });
@@ -433,6 +370,11 @@ function List(props) {
             loading={loading}
             message={message}
             alert={alert}
+            floatingButton={{
+                route: 'backoffice.general.orders.create',
+                icon: <AddIcon />,
+                }
+            }
         >
             {!loading && data && (
                 <Table

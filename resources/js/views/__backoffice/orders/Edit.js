@@ -55,8 +55,8 @@ function Edit(props) {
     const [order, setOrder] = useState({
         total_bruto: 0,
         total: 0,
-        delivery_cost: "",
-        discount: "",
+        delivery_cost: 0,
+        discount: 0,
         payment_method: ""
     });
 
@@ -94,6 +94,12 @@ function Edit(props) {
         
 
     }, []);
+
+    useEffect(() => {
+       
+        updateOrder();     
+
+    }, [order.total]);
 
 
     useEffect(() => {
@@ -276,22 +282,30 @@ function Edit(props) {
 
     }
 
-    const saveOrder = async () => {
+    const updateOrder = async () => {
+
+        let values = {...order}
+        values.id_customer = customer.id;
+
+        const updatedOrder = await Order.update(orderID, {
+            ...values
+        });
+        
+        setMessage({
+            type: 'success',
+            body: 'Orden "'+updatedOrder.id +'" creada con éxito',
+            closed: () => setMessage({}),
+        });
+
+    }
+
+    const saveOrderClick = async () => {
 
         setLoading(true);
+
         try {
-            let values = {...order}
-            values.id_customer = customer.id;
-    
-            const updatedOrder = await Order.update(orderID, {
-                ...values
-            });
-            
-            setMessage({
-                type: 'success',
-                body: 'Orden "'+updatedOrder.id +'" creada con éxito',
-                closed: () => setMessage({}),
-            });
+
+            let funct = await updateOrder();
 
             setLoading(false);
 
@@ -490,7 +504,7 @@ function Edit(props) {
                                 variant="contained" 
                                 color="primary"
                                 disabled={(order.total > 0) ? false : true}
-                                onClick={() => saveOrder()}
+                                onClick={() => saveOrderClick()}
                             >
                                 Guardar
                             </Button>

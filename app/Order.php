@@ -22,10 +22,10 @@ class Order extends Model
 
   public static function getByID($id) {
     return self::where('orders.id', '=', $id)
-                ->join('users','orders.id_user','=','users.id')
-                ->join('customers','orders.id_customer','=','customers.id')
-                ->join('neighborhoods','customers.id_neighborhood','=','neighborhoods.id')
-                ->join('zones','neighborhoods.id_zone','=','zones.id')
+                ->leftjoin('users','orders.id_user','=','users.id')
+                ->leftjoin('customers','orders.id_customer','=','customers.id')
+                ->leftjoin('neighborhoods','customers.id_neighborhood','=','neighborhoods.id')
+                ->leftjoin('zones','neighborhoods.id_zone','=','zones.id')
                 ->select('orders.id', 'orders.date', 'users.name', 'id_customer', 
                           'customers.name as customer', 'customers.address', 'customers.cellphone', 
                           'neighborhoods.name as neighborhood', 'zones.name as zone', 

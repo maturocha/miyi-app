@@ -9,7 +9,7 @@ import {
 import * as NavigationUtils from '../helpers/Navigation';
 
 const MenuList = props => {
-    const { idOrder, history } = props
+    const { idOrder, history, handleDeleteClick } = props
     const [anchorEl, setAnchorEl] = useState(null);
 
   const handleClick = (event) => {
@@ -55,14 +55,7 @@ const MenuList = props => {
                             >Editar</MenuItem>
                             <MenuItem
                              onClick={() =>
-                                history.push(
-                                    NavigationUtils.route(
-                                        'backoffice.general.orders.delete',
-                                        {
-                                            id: idOrder,
-                                        },
-                                    ),
-                                )
+                                handleDeleteClick(idOrder)
                             }
                             >Eliminar</MenuItem>
       </Menu>

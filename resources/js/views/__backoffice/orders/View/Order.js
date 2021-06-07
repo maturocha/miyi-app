@@ -19,12 +19,12 @@ import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
-import Paper from '@material-ui/core/Paper';
+
+import * as NavigationUtils from '../../../../helpers/Navigation';
 
 import {
   Person as PersonIcon,
   ContactPhone as ContactPhoneIcon,
-  School as SchoolIcon,
 } from '@material-ui/icons';
 
 
@@ -76,22 +76,6 @@ const Order = props => {
                     
                     color="textPrimary"
                   >
-                    Descuento: {values.discount} %
-                  </Typography>
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    
-                    color="textPrimary"
-                  >
-                    Costo de envío: {values.delivery_cost}
-                  </Typography>
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    
-                    color="textPrimary"
-                  >
                     Notas: {values.notes}
                   </Typography>
                   <Typography
@@ -121,15 +105,15 @@ const Order = props => {
                     component="span"
                     variant="body2"
                     color="textPrimary"
-                    onClick={() =>
-                      history.push(
-                          NavigationUtils.route(
-                              'backoffice.admin.meetups.show',
-                              {
-                                  id: values.id_customer,
-                              },
-                          ),
-                      )
+                    onClick={() => console.log(values)
+                      // history.push(
+                      //     NavigationUtils.route(
+                      //         'backoffice.admin.meetups.show',
+                      //         {
+                      //             id: values.id_customer,
+                      //         },
+                      //     ),
+                      // )
                   }
                   >
                     {values.customer}
@@ -173,7 +157,7 @@ const Order = props => {
         <TableBody>
           {values.details.map((row) => (
             <TableRow key={row.id_product}>
-              <TableCell>{row.product}</TableCell>
+              <TableCell>{row.name}</TableCell>
               <TableCell align="right">{row.quantity}</TableCell>
               <TableCell align="right">$ {row.price_unit}</TableCell>
               <TableCell align="right">{row.discount}</TableCell>

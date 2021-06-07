@@ -54,8 +54,8 @@ function Create(props) {
     const [order, setOrder] = useState({
         total_bruto: 0,
         total: 0,
-        delivery_cost: "",
-        discount: "",
+        delivery_cost: 0,
+        discount: 0,
         payment_method: ""
     });
 
@@ -77,6 +77,14 @@ function Create(props) {
         
 
     }, []);
+
+
+    useEffect(() => {
+
+        if (order.total > 0)
+            updateOrder();     
+
+    }, [order.total]);
 
 
     useEffect(() => {
@@ -259,22 +267,30 @@ function Create(props) {
 
     }
 
-    const saveOrder = async () => {
+    const updateOrder = async () => {
+
+        let values = {...order}
+        values.id_customer = customer.id;
+
+        const updatedOrder = await Order.update(orderID, {
+            ...values
+        });
+        
+        setMessage({
+            type: 'success',
+            body: 'Orden "'+updatedOrder.id +'" creada con éxito',
+            closed: () => setMessage({}),
+        });
+
+    }
+
+    const saveOrderClick = async () => {
 
         setLoading(true);
+
         try {
-            let values = {...order}
-            values.id_customer = customer.id;
-    
-            const updatedOrder = await Order.update(orderID, {
-                ...values
-            });
-            
-            setMessage({
-                type: 'success',
-                body: 'Orden "'+updatedOrder.id +'" creada con éxito',
-                closed: () => setMessage({}),
-            });
+
+            let funct = await updateOrder();
 
             setLoading(false);
 
@@ -378,7 +394,11 @@ function Create(props) {
                     <ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>
                         <AddShoppingCartIcon />
                         <Typography className={classes.heading}>
-                            Extras
+                            Extras (- ${
+                                (order.discount + order.delivery_cost > 0) ?
+                                (((order.discount * order.total_bruto) / 100) + order.delivery_cost) :
+                                '0'
+                            })
                         </Typography>
                     </ExpansionPanelSummary>
                     <ExpansionPanelDetails className={classes.panelDetailsRow}>
@@ -469,7 +489,7 @@ function Create(props) {
                                 variant="contained" 
                                 color="primary"
                                 disabled={(order.total > 0) ? false : true}
-                                onClick={() => saveOrder()}
+                                onClick={() => saveOrderClick()}
                             >
                                 Guardar
                             </Button>
