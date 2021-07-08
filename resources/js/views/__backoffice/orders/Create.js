@@ -48,7 +48,7 @@ function Create(props) {
     const [formValues, setFormValues] = useState([]);
     const [message, setMessage] = useState({});
     const [expanded, setExpanded] = useState('customer');
-    const [orderID, setOrderID] = useState(null);
+    const [orderID, setOrderID] = useState('...');
     const [customer, setCustomer] = useState(null);
     const [items, setItems] = useState([]);
     const [order, setOrder] = useState({
@@ -59,10 +59,12 @@ function Create(props) {
         payment_method: ""
     });
 
-    const createOrder = async () => {
+    const createOrder = async (customer_id) => {
         setLoading(true);
         try {
-            const orderItem = await Order.store({});
+            let values = {}
+            values.id_customer = customer_id;
+            const orderItem = await Order.store(values);
             setOrderID(orderItem.id)
             setLoading(false);
         } catch (error) {
@@ -73,7 +75,7 @@ function Create(props) {
     //First render
     useEffect(() => {
         
-        createOrder();
+        
         
 
     }, []);
@@ -168,6 +170,7 @@ function Create(props) {
      * @return {undefined}
      */
     const handleChangePanelCustomer = selectedOption => {
+        createOrder(selectedOption.id);
         setCustomer(selectedOption);
         setExpanded('items');
     }
@@ -276,11 +279,11 @@ function Create(props) {
             ...values
         });
         
-        setMessage({
-            type: 'success',
-            body: 'Orden "'+updatedOrder.id +'" creada con éxito',
-            closed: () => setMessage({}),
-        });
+        // setMessage({
+        //     type: 'success',
+        //     body: 'Orden "'+updatedOrder.id +'" creada con éxito',
+        //     closed: () => setMessage({}),
+        // });
 
     }
 
@@ -544,6 +547,7 @@ const styles = theme => ({
     },
     gridButtonsFooter : {
         margin: '8px',
+        padding: '0px',
         width: 'auto',
         alignItems: 'center'
     },

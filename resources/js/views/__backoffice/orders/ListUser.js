@@ -158,12 +158,10 @@ function List(props) {
             setAlert({});
             setMessage({
                 type: 'error',
-                body: Lang.get('resources.not_deleted', {
-                    name: 'User',
-                }),
+                body: 'Venta no borrada',
                 closed: () => setMessage({}),
-                actionText: Lang.get('actions.retry'),
-                action: () => deleteUser(resourceId),
+                actionText: 'Re intentar',
+                action: () => deleteOrder(resourceId),
             });
         }
     };

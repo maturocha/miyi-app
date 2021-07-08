@@ -14,6 +14,7 @@ import ListItemText from '@material-ui/core/ListItemText';
 import ListItemAvatar from '@material-ui/core/ListItemAvatar';
 import Avatar from '@material-ui/core/Avatar';
 
+
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -23,6 +24,7 @@ import TableRow from '@material-ui/core/TableRow';
 import * as NavigationUtils from '../../../../helpers/Navigation';
 
 import {
+  InsertComment as InsertCommentIcon,
   Person as PersonIcon,
   ContactPhone as ContactPhoneIcon,
 } from '@material-ui/icons';
@@ -30,11 +32,9 @@ import {
 
 
 const Order = props => {
-    const { values, ...other } = props;
+    const { values, classes, ...other } = props;
 
     const [message, setMessage] = useState({});
-
-
 
     return (
         <Grid container spacing={24}>
@@ -56,14 +56,6 @@ const Order = props => {
                     
                     color="textPrimary"
                   >
-                  Nro pedido: {values.id}
-                  </Typography>
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    
-                    color="textPrimary"
-                  >
                   Fecha: {new Date(values.date).toLocaleDateString('es-AR', {
                     day : 'numeric',
                     month : 'numeric',
@@ -76,7 +68,7 @@ const Order = props => {
                     
                     color="textPrimary"
                   >
-                    Notas: {values.notes}
+                  Metodo de pago: {values.payment_method}
                   </Typography>
                   <Typography
                     component="span"
@@ -131,62 +123,83 @@ const Order = props => {
               }
             />
           </ListItem>
+
+          <ListItem>
+            <ListItemAvatar>
+              <Avatar>
+                <InsertCommentIcon />
+              </Avatar>
+            </ListItemAvatar>
+            <ListItemText
+              primary="Notas"
+              secondary={
+                <React.Fragment>
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    color="textPrimary"
+                  >
+                    {values.notes}
+                  </Typography>
+                </React.Fragment>
+              }
+            />
+          </ListItem>
           
         </List>
         </ Grid>
      
-          <Grid item xs={12} sm={8}>
+        <Grid item xs={12} sm={8}>
+        <div className={classes.tableWrapper}>
+          <Table className={classes.table} aria-label="spanning table">
+            <TableHead>
+              <TableRow>
+                <TableCell align="center" colSpan={4}>
+                  Artículos Vendidos
+                </TableCell>
+                <TableCell align="right">Precio</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Producto</TableCell>
+                <TableCell align="right">Cant.</TableCell>
+                <TableCell align="right">Precio</TableCell>
+                <TableCell align="right">Desc</TableCell>
+                <TableCell align="right">Subtotal</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {values.details.map((row) => (
+                <TableRow key={row.id_product}>
+                  <TableCell>{row.name}</TableCell>
+                  <TableCell align="right">{row.quantity}</TableCell>
+                  <TableCell align="right">$ {row.price_unit}</TableCell>
+                  <TableCell align="right">{row.discount}</TableCell>
+                  <TableCell align="right">$ {row.price_final}</TableCell>
+                </TableRow>
+              ))}
 
-          
-      <Table className='' aria-label="spanning table">
-        <TableHead>
-          <TableRow>
-            <TableCell align="center" colSpan={4}>
-              Artículos Vendidos
-            </TableCell>
-            <TableCell align="right">Precio</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Producto</TableCell>
-            <TableCell align="right">Cant.</TableCell>
-            <TableCell align="right">Precio</TableCell>
-            <TableCell align="right">Desc</TableCell>
-            <TableCell align="right">Subtotal</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {values.details.map((row) => (
-            <TableRow key={row.id_product}>
-              <TableCell>{row.name}</TableCell>
-              <TableCell align="right">{row.quantity}</TableCell>
-              <TableCell align="right">$ {row.price_unit}</TableCell>
-              <TableCell align="right">{row.discount}</TableCell>
-              <TableCell align="right">$ {row.price_final}</TableCell>
-            </TableRow>
-          ))}
-
-          <TableRow>
-            <TableCell rowSpan={3} />
-            <TableCell colSpan={3}>Subtotal</TableCell>
-            <TableCell align="right">$ {values.total_bruto}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell colSpan={3}>Descuento</TableCell>
-            <TableCell align="right">{values.discount} %</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell colSpan={3}>Envío</TableCell>
-            <TableCell align="right">$ {values.delivery_cost}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell/>
-            <TableCell colSpan={3}>Total</TableCell>
-            <TableCell align="right">$ {values.total}</TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+              <TableRow>
+                <TableCell rowSpan={3} />
+                <TableCell colSpan={3}>Subtotal</TableCell>
+                <TableCell align="right">$ {values.total_bruto}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell colSpan={3}>Descuento</TableCell>
+                <TableCell align="right">{values.discount} %</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell colSpan={3}>Envío</TableCell>
+                <TableCell align="right">$ {values.delivery_cost}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell/>
+                <TableCell colSpan={3}>Total</TableCell>
+                <TableCell align="right">$ {values.total}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
     
-
+          </ div>
         </ Grid>
       </ Grid>
    );
@@ -197,6 +210,13 @@ Order.propTypes = {
 };
 
 const styles = theme => ({
+    table: {
+      minWidth: 500,
+    },
+
+    tableWrapper: {
+        overflowX: 'auto',
+    },
     formControl: {
         minWidth: '100%',
     },

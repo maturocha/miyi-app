@@ -59,6 +59,7 @@ function Edit(props) {
         discount: 0,
         payment_method: ""
     });
+    const notInitialRender = useRef(false)
 
     const fetchOrder = async id => {
         setLoading(true);
@@ -72,6 +73,7 @@ function Edit(props) {
             const customerItem = await Customer.show(order.data.id_customer);
             setCustomer(customerItem)
             setLoading(false);
+            notInitialRender.current = true
         } catch (error) {
             setLoading(false);
         }
@@ -90,20 +92,19 @@ function Edit(props) {
         const queryParams = UrlUtils.queryParams(location.search);
 
         setOrderID(params.id);
-        fetchOrder(params.id);
-        
+        fetchOrder(params.id);        
 
     }, []);
 
     useEffect(() => {
-       
-        updateOrder();     
+        if (notInitialRender.current)
+            updateOrder();     
 
     }, [order.total]);
 
 
     useEffect(() => {
-        if (customer) {
+        if (notInitialRender.current) {
             if (items.length == 0) {
                 calculateTotal(false)
             } else {
@@ -115,14 +116,14 @@ function Edit(props) {
     }, [order.total_bruto]);
 
     useEffect(() => {
-        if (customer)
+        if (notInitialRender.current)
             calculateTotal(false)
 
     }, [order.discount]);
 
     useEffect(() => {
 
-        if (( order.payment_method == 'ef' ) && (customer.type == 'p'))
+        if (( notInitialRender.current && order.payment_method == 'ef' ) && (customer.type == 'p'))
             setOrder(
                 prevState => ({ 
                     ...prevState,
@@ -289,12 +290,6 @@ function Edit(props) {
 
         const updatedOrder = await Order.update(orderID, {
             ...values
-        });
-        
-        setMessage({
-            type: 'success',
-            body: 'Orden "'+updatedOrder.id +'" creada con éxito',
-            closed: () => setMessage({}),
         });
 
     }

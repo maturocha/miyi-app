@@ -85,6 +85,7 @@ function Show(props) {
 
             id: order.id === null ? '' : order.id,
             date: order.date === null ? '' : order.date,
+            payment_method: order.payment_method === 'ef' ? 'Efectivo' : 'Transferencia',
             delivery_cost: order.delivery_cost === null ? '' : order.delivery_cost,
             details: order.details === null ? '' : order.details,
             discount: order.discount === null ? '' : order.discount,

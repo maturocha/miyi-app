@@ -26,10 +26,11 @@ class Order extends Model
                 ->leftjoin('customers','orders.id_customer','=','customers.id')
                 ->leftjoin('neighborhoods','customers.id_neighborhood','=','neighborhoods.id')
                 ->leftjoin('zones','neighborhoods.id_zone','=','zones.id')
-                ->select('orders.id', 'orders.date', 'users.name', 'id_customer', 
+                ->select('orders.id', 'orders.date', 'orders.total', 'orders.discount', 'orders.notes', 
+                          'orders.total_bruto', 'orders.delivery_cost', 'orders.payment_method',
+                          'users.name', 'id_customer', 
                           'customers.name as customer', 'customers.address', 'customers.cellphone', 
-                          'neighborhoods.name as neighborhood', 'zones.name as zone', 
-                          'orders.total', 'orders.discount', 'orders.notes', 'orders.total_bruto', 'orders.delivery_cost')
+                          'neighborhoods.name as neighborhood', 'zones.name as zone')
                 ->first();
 
   }

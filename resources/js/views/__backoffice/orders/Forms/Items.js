@@ -138,13 +138,6 @@ const Items = props => {
       })
       return null
     }
-      
-
-    setProduct(null)
-    setSelectedValue(null)
-    updateQuantity("")
-    updateDiscount("")
-    updateSubtotal(0)
 
     let item = {
       id_product: product.id,
@@ -156,6 +149,12 @@ const Items = props => {
     }
 
     addItemsToOrder(item)
+
+    setProduct(null)
+    setSelectedValue(null)
+    updateQuantity("")
+    updateDiscount("")
+    updateSubtotal(0)
 
   }
   // load options using API call
@@ -237,7 +236,7 @@ const Items = props => {
                 <Grid item xs={6} sm={3}>
                   <Paper className={classes.info}>Precio: ${(typePrice == 'm') ? product.price_unit : product.price_min}</Paper>
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={6} sm={3}>
                   <InputLabel htmlFor="quantity">
                                     Cantidad{' '}
                                     <span></span>
@@ -253,7 +252,7 @@ const Items = props => {
                       fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={6} sm={3}>
                   <InputLabel htmlFor="discount">
                       Descuento %{' '}
                       <span></span>

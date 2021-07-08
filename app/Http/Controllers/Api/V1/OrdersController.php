@@ -40,6 +40,7 @@ class OrdersController extends Controller
 
         $order = Order::create([
             'id_user' => $userid,
+            'id_customer' => $request->id_customer,
             'date' => $today->format('Y-m-d H:i:s')
             
         ]);

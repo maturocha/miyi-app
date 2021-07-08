@@ -25,7 +25,7 @@ function Master(props) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-    const [notificationsList, setNotifications] = useState({});
+    const [notificationsList, setNotifications] = useState([]);
 
     //  /**
     //  * Fetch data on initialize.
@@ -305,6 +305,7 @@ const styles = theme => ({
         position: 'fixed',
         bottom: theme.spacing.unit * 2,
         right: theme.spacing.unit * 2,
+        zIndex: 9
     },
 
     fabGreen: {
