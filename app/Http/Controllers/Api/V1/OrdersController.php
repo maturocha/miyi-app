@@ -144,10 +144,12 @@ class OrdersController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $userid = \Auth::id();
+        $user = Auth::user();
 
         $orders = Order::leftjoin('customers','customers.id','=','orders.id_customer')
-            ->where('id_user', '=', $userid)
+            ->when($user->role_id <> 1, function ($query) use ($user) {
+                    $query->where('id_user', '=', $user->id);
+            })
             ->orderBy(
              $request->input('sortBy') ?? 'created_at',
              $request->input('sortType') ?? 'DESC'

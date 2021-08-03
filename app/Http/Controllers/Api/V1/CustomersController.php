@@ -37,14 +37,29 @@ class CustomersController extends Controller
         $userid = \Auth::id();
         $today = Carbon::now()->timezone('America/Argentina/Buenos_Aires');
 
-        $order = Order::create([
-            'id_user' => $userid,
-            'date' => $today->format('Y-m-d H:i:s')
-            
-        ]);
+        $values = [];
+        $values['cuit'] = $request->input('cuit', '');
+        $values['firstname'] = $request->input('firstname', '');
+        $values['lastname'] = $request->input('lastname', '');
+        $values['email'] = $request->input('email', '');
+        $values['address'] = $request->input('address', '');
+        $values['cellphone'] = $request->input('cellphone', '');
+        $values['telephone'] = $request->input('telephone', '');
+        $values['facebook'] = $request->input('facebook', '');
+        $values['instagram'] = $request->input('instagram', '');
+        $birthday = $request->input('birthday', '');
+        if (empty($birthday)) {
+            $values['birthday'] = null;
+        } else {
+            $values['birthday'] = Carbon::createFromFormat('d/m/Y', $birthday. '/2020');
+        }
 
-        if ($order) {
-            $response = response()->json($order, 201);
+        $values['comments'] = $request->input('comments', '');
+
+        $customer = Customer::create($values);
+
+        if ($customer) {
+            $response = response()->json($customer, 201);
         } else {
             $response = response()->json(['data' => 'Resource can not be created'], 500);
         }
