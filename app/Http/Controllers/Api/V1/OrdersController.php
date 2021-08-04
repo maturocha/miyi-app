@@ -150,6 +150,12 @@ class OrdersController extends Controller
             ->when($user->role_id <> 1, function ($query) use ($user) {
                     $query->where('id_user', '=', $user->id);
             })
+            ->when($request->has('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                $query->where(function ($query) use ($search) {
+                    $query->where('orders.id', '=', "$search");
+                });
+            })
             ->orderBy(
              $request->input('sortBy') ?? 'created_at',
              $request->input('sortType') ?? 'DESC'

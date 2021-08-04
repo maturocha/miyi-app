@@ -50,6 +50,42 @@ if (! function_exists('_test_user')) {
     }
 }
 
+if (! function_exists('_clean_string')) {
+    /**
+     * Login and get the then authenticated user.
+     *
+     * @return App\User
+     */
+    function _clean_string($string)
+    {
+        $utf8 = array(
+            '/[áàâãªä]/u'   =>   'a',
+            '/[ÁÀÂÃÄ]/u'    =>   'A',
+            '/[ÍÌÎÏ]/u'     =>   'I',
+            '/[íìîï]/u'     =>   'i',
+            '/[éèêë]/u'     =>   'e',
+            '/[ÉÈÊË]/u'     =>   'E',
+            '/[óòôõºö]/u'   =>   'o',
+            '/[ÓÒÔÕÖ]/u'    =>   'o',
+            '/[úùûü]/u'     =>   'u',
+            '/[ÚÙÛÜ]/u'     =>   'u',
+            '/ç/'           =>   'c',
+            '/Ç/'           =>   'c',
+            '/ñ/'           =>   'n',
+            '/Ñ/'           =>   'n',
+            '/–/'           =>   '-', // UTF-8 hyphen to "normal" hyphen
+        );
+        $string = preg_replace(array_keys($utf8), array_values($utf8), $string);
+        $string = str_replace(array('[\', \']'), '', $string);
+        $string = preg_replace('/\[.*\]/U', '', $string);
+        $string = preg_replace('/&(amp;)?#?[a-z0-9]+;/i', '-', $string);
+        $string = htmlentities($string, ENT_COMPAT, 'utf-8');
+        $string = preg_replace('/&([a-z])(acute|uml|circ|grave|ring|cedil|slash|tilde|caron|lig|quot|rsquo);/i', '\\1', $string );
+        $string = preg_replace(array('/[^a-z0-9]/i', '/[-]+/') , '-', $string);
+        return strtolower(trim($string, '-'));
+    }
+}
+
 if (! function_exists('_keyword_to_sql_operator')) {
     /**
      * Convert a keyword to an SQL operator.

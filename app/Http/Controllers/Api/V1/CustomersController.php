@@ -166,7 +166,17 @@ class CustomersController extends Controller
         $customers = Customer::orderBy(
              $request->input('sortBy') ?? 'name',
              $request->input('sortType') ?? 'ASC'
-            );
+        )
+
+        ->when($request->has('search'), function ($query) use ($request) {
+            $search = $request->input('search');
+            return $query->where(function($q) use ($search) {
+                $q->where('fullname', 'like', "%$search%")
+                    ->orWhere('name', 'like', "%$search%");
+                   });
+        })
+        ->groupBy('customers.id')
+        ->whereNull('customers.deleted_at');
 
         return $customers->paginate($request->input('perPage') ?? 40);
     }
