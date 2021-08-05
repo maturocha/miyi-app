@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Product;
 use DB;
 
+use App\Http\Controllers\Api\V1\ImageController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +28,20 @@ class ProductsController extends Controller
         return response()->json($this->paginatedQuery($request));
     }
 
+    private function getValues(Request $request)
+    {
+
+        $values = $request->all();
+        
+        $price_unit = $values['price_purchase'] + (($values['price_purchase']*$values['percentage_may'])/100);
+        $price_min = $values['price_purchase'] + (($values['price_purchase']*$values['percentage_min'])/100);
+
+        $values['price_unit'] = number_format((float)$price_unit, 2,'.', '');
+        $values['price_min'] = number_format((float)$price_min, 2,'.', '');
+
+        return $values;
+    }
+
     /**
      * Store a new resource.
      *
@@ -37,22 +53,22 @@ class ProductsController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:255',
-            'date' => 'required|date|after_or_equal:today',
-            'temperature' => 'nullable|numeric|between:0,99.99',
         ]);
 
-        $userid = \Auth::id();
+        $values = $this->getValues($request);
 
-        $meetup = Meetup::create([
-            'name' => $request->input('name'),
-            'id_owner' => $userid,
-            'description' => $request->input('description'),
-            'date' => Carbon::parse($request->input('date')),
-            'temperature' => $request->input('temperature'),
-        ]);
+        $product = Product::create($values);
 
-        return response()->json($meetup, 201);
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $name = Str::slug($record->name).'_'.time();
+            $id = $product->id;
+            $image = new ImageController();
+            $image->updateImage($file, $name, $id);
+            
+       }
+
+        return response()->json($product, 201);
     }
 
     /**
@@ -157,16 +173,7 @@ class ProductsController extends Controller
                 ->where('id_provider', '=', "$provider");
             
         })
-        ->where(function($queryContainer){
-            $queryContainer->where(function($q){
-                $q->where('stock','>',0)
-                    ->where('own_product','=',1);
-                })
-                ->orwhere(function($q){
-                    $q->where('stock','<>',0)
-                    ->where('own_product','=', 0);
-                    });    
-        })
+        
         ->groupBy('products.id')
         ->orderBy('name', 'ASC')
         ->whereNull('products.deleted_at');
