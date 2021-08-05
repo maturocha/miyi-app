@@ -15,7 +15,7 @@ class Product extends Model
   protected $fillable = [
       'name', 'description', 'price_unit', 'stock', 'id_category', 'interval_quantity', 'own_product',
       'code_miyi', 'price_purchase', 'percentage_may', 'percentage_min', 'price_min', 'bulto', 'show_store',
-      'min_stock'
+      'min_stock', 'type_product'
   ];
   protected $dates = ['deleted_at'];
   protected $hidden = ['created_at', 'updated_at'];
@@ -163,9 +163,9 @@ class Product extends Model
 
   }
 
-  public static function getImageByID($id) {
+  public function getImages() {
     return self::join('images','products.id','=','images.id_product')
-                ->where('products.id', '=', $id)
+                ->where('products.id', '=', $this->id)
                 ->select('images.path')
                 ->first();
 

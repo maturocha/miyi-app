@@ -65,7 +65,9 @@ class ProductsController extends Controller
      */
     public function show(Request $request, Product $product) : JsonResponse
     {
-        return response()->json($product);
+        $response['data'] = $product;
+        $response['data']['image'] = $product->getImages();
+        return response()->json($response, 200);
     }
 
     /**
