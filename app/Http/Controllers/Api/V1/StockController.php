@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Customer;
+use App\Stock;
+use App\Stock_details;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -10,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 
-class CustomersController extends Controller
+class StockController extends Controller
 {
     /**
      * List all resource.
@@ -34,32 +35,28 @@ class CustomersController extends Controller
     public function store(Request $request) : JsonResponse
     {
 
-        $userid = \Auth::id();
-        $today = Carbon::now()->timezone('America/Argentina/Buenos_Aires');
-
         $values = [];
-        $values['cuit'] = $request->input('cuit', '');
-        $values['firstname'] = $request->input('firstname', '');
-        $values['lastname'] = $request->input('lastname', '');
-        $values['email'] = $request->input('email', '');
-        $values['address'] = $request->input('address', '');
-        $values['cellphone'] = $request->input('cellphone', '');
-        $values['telephone'] = $request->input('telephone', '');
-        $values['facebook'] = $request->input('facebook', '');
-        $values['instagram'] = $request->input('instagram', '');
-        $birthday = $request->input('birthday', '');
-        if (empty($birthday)) {
-            $values['birthday'] = null;
-        } else {
-            $values['birthday'] = Carbon::createFromFormat('d/m/Y', $birthday. '/2020');
-        }
+        $userid = \Auth::id();
 
-        $values['comments'] = $request->input('comments', '');
+        $values['id_user'] = $userid;
+        $values['date'] =  Carbon::now()->timezone('America/Argentina/Buenos_Aires');;
+        $values['type'] =  $request->input('type', '');
+        $stock = Stock::create($values);
+        $items = $request->input('items', '');
 
-        $customer = Customer::create($values);
-
-        if ($customer) {
-            $response = response()->json($customer, 201);
+        $details = [];
+        if ($stock) {
+            foreach ($items as $item) {
+                $details['id_stock'] = $stock->id;
+                $details['id_product'] = $item['id_product'];
+                $details['quantity'] = $request->input('type') == 'in' ? $item['quantity'] : -abs($item['quantity']);
+                if ($request->input('type') == 'in') {
+                    $details['id_provider'] = ($item['id_provider']) ? $item['id_provider'] : null;
+                    $details['price_purchase'] = ($item['price_purchase']) ? $item['price_purchase'] : null;
+                }
+            }
+            Stock_details::insert($details);
+            $response = response()->json($stock, 201);
         } else {
             $response = response()->json(['data' => 'Resource can not be created'], 500);
         }
@@ -76,24 +73,19 @@ class CustomersController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-
-     
-    public function show(Request $request, Customer $customer) : JsonResponse
+    public function show($id) : JsonResponse
 
     {
-
-        return response()->json($customer);
-
-        // $order = Order::getByID($id);
-        // if ($order) {
-        //     $order['details'] = Order::getDetailsByID($id);
-        //     $response['data'] = $order;
-        //     $response = response()->json($response, 200);
-        // } else {
-        //     $response = response()->json(['data' => 'Resource not found'], 404);
-        // }
+        $order = Order::getByID($id);
+        if ($order) {
+            $order['details'] = Order::getDetailsByID($id);
+            $response['data'] = $order;
+            $response = response()->json($response, 200);
+        } else {
+            $response = response()->json(['data' => 'Resource not found'], 404);
+        }
         
-        // return $response;
+        return $response;
 
     }
 
@@ -110,9 +102,6 @@ class CustomersController extends Controller
 
         $attributes = $request->all();
         
-        if ($request->has('date')) {
-           $attributes['date'] = Carbon::parse($request->input('date')); 
-        }   
         $order->fill($attributes);
         $order->update();
 
@@ -129,6 +118,10 @@ class CustomersController extends Controller
      */
     public function destroy(Request $request, Order $order) : JsonResponse
     {
+        $ids = Order::getDetailsToDelete($order->id);
+
+        Order_details::destroy($ids);
+
         $order->delete();
 
         return response()->json($this->paginatedQuery($request));
@@ -161,23 +154,13 @@ class CustomersController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $userid = \Auth::id();
 
-        $customers = Customer::orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
-        )
+        $stock = Stock::orderBy(
+            $request->input('sortBy') ?? 'id',
+            $request->input('sortType') ?? 'DESC'
+       );
 
-        ->when($request->has('search'), function ($query) use ($request) {
-            $search = $request->input('search');
-            return $query->where(function($q) use ($search) {
-                $q->where('fullname', 'like', "%$search%")
-                    ->orWhere('name', 'like', "%$search%");
-                   });
-        })
-        ->whereNull('customers.deleted_at');
-
-        return $customers->paginate($request->input('perPage') ?? 40);
+        return $stock->paginate($request->input('perPage') ?? 40);
     }
 
     /**

@@ -4,7 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Image;
 use App\Http\Controllers\Controller;
-use App\Traits\Controllers\ImageTraitController;
+use Illuminate\Http\JsonResponse;
+use App\Traits\ImageTraitController;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 
@@ -63,5 +64,12 @@ class ImageController extends Controller
 
         // Return user back and show a flash message
         return true;
+    }
+
+    public function showImage($id) : JsonResponse
+    {
+        $image = Image::where('id_product', '=', $id)->first();
+
+        return response()->json($id);
     }
 }

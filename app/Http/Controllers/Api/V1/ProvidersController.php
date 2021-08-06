@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Customer;
+use App\Provider;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 
-class CustomersController extends Controller
+class ProvidersController extends Controller
 {
     /**
      * List all resource.
@@ -34,32 +34,11 @@ class CustomersController extends Controller
     public function store(Request $request) : JsonResponse
     {
 
-        $userid = \Auth::id();
-        $today = Carbon::now()->timezone('America/Argentina/Buenos_Aires');
-
         $values = [];
-        $values['cuit'] = $request->input('cuit', '');
-        $values['firstname'] = $request->input('firstname', '');
-        $values['lastname'] = $request->input('lastname', '');
-        $values['email'] = $request->input('email', '');
-        $values['address'] = $request->input('address', '');
-        $values['cellphone'] = $request->input('cellphone', '');
-        $values['telephone'] = $request->input('telephone', '');
-        $values['facebook'] = $request->input('facebook', '');
-        $values['instagram'] = $request->input('instagram', '');
-        $birthday = $request->input('birthday', '');
-        if (empty($birthday)) {
-            $values['birthday'] = null;
-        } else {
-            $values['birthday'] = Carbon::createFromFormat('d/m/Y', $birthday. '/2020');
-        }
+        $provider = Provider::create($values);
 
-        $values['comments'] = $request->input('comments', '');
-
-        $customer = Customer::create($values);
-
-        if ($customer) {
-            $response = response()->json($customer, 201);
+        if ($Provider) {
+            $response = response()->json($provider, 201);
         } else {
             $response = response()->json(['data' => 'Resource can not be created'], 500);
         }
@@ -78,22 +57,11 @@ class CustomersController extends Controller
      */
 
      
-    public function show(Request $request, Customer $customer) : JsonResponse
+    public function show(Request $request, Provider $provider) : JsonResponse
 
     {
 
-        return response()->json($customer);
-
-        // $order = Order::getByID($id);
-        // if ($order) {
-        //     $order['details'] = Order::getDetailsByID($id);
-        //     $response['data'] = $order;
-        //     $response = response()->json($response, 200);
-        // } else {
-        //     $response = response()->json(['data' => 'Resource not found'], 404);
-        // }
-        
-        // return $response;
+        return response()->json($provider);
 
     }
 
@@ -105,18 +73,15 @@ class CustomersController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Order $order) : JsonResponse
+    public function update(Request $request, Provider $provider) : JsonResponse
     {
 
         $attributes = $request->all();
         
-        if ($request->has('date')) {
-           $attributes['date'] = Carbon::parse($request->input('date')); 
-        }   
-        $order->fill($attributes);
-        $order->update();
+        $provider->fill($attributes);
+        $provider->update();
 
-        return response()->json($order);
+        return response()->json($provider);
     }
 
     /**
@@ -127,9 +92,9 @@ class CustomersController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, Order $order) : JsonResponse
+    public function destroy(Request $request, Provider $provider) : JsonResponse
     {
-        $order->delete();
+        $provider->delete();
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -144,9 +109,9 @@ class CustomersController extends Controller
      */
     public function restore(Request $request, $id)
     {
-        $order = Order::withTrashed()->where('id', $id)->first();
-        $order->deleted_at = null;
-        $order->update();
+        $provider = Provider::withTrashed()->where('id', $id)->first();
+        $provider->deleted_at = null;
+        $provider->update();
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -163,21 +128,19 @@ class CustomersController extends Controller
     {
         $userid = \Auth::id();
 
-        $customers = Customer::orderBy(
-             $request->input('sortBy') ?? 'name',
+        $providers = Provider::orderBy(
+             $request->input('sortBy') ?? 'fullname',
              $request->input('sortType') ?? 'ASC'
         )
-
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
             return $query->where(function($q) use ($search) {
                 $q->where('fullname', 'like', "%$search%")
-                    ->orWhere('name', 'like', "%$search%");
+                    ->orWhere('enterprise', 'like', "%$search%");
                    });
-        })
-        ->whereNull('customers.deleted_at');
+        });
 
-        return $customers->paginate($request->input('perPage') ?? 40);
+        return $providers->paginate($request->input('perPage') ?? 40);
     }
 
     /**

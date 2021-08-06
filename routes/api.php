@@ -59,15 +59,21 @@ Route::namespace('Api')->name('api.')->group(function () {
                     });
                 });
 
+                Route::get('images/{id}', 'ImageController@showImage');
+
                 Route::resource('orders', 'OrdersController');
 
                 Route::resource('details', 'OrdersDetailsController');
 
                 Route::resource('customers', 'CustomersController');
 
+                Route::resource('providers', 'ProvidersController');
+
                 Route::resource('categories', 'CategoriesController');
 
                 Route::resource('products', 'ProductsController');
+
+                Route::resource('stock', 'StockController');
 
                 Route::resource('meetups', 'MeetupsController');
 
