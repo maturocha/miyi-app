@@ -69,6 +69,8 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::resource('providers', 'ProvidersController');
 
+                Route::resource('zones', 'ZonesController');
+
                 Route::resource('categories', 'CategoriesController');
 
                 Route::resource('products', 'ProductsController');
