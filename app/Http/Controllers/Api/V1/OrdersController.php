@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
+use PDF;
 
 class OrdersController extends Controller
 {
@@ -189,5 +190,20 @@ class OrdersController extends Controller
 
             $orders->where($property, _to_sql_operator($keyword), "{$value}");
         }
+    }
+
+    public function viewVoucher($id) {
+        $data = [];
+
+        $order = Order::getByID($id); 
+        $order['date'] = Carbon::parse($order['date'])->format('d/m/Y');
+        $data['order'] = $order;
+        $today = Carbon::now()->timezone('America/Argentina/Buenos_Aires')->toDateString();
+        $data['details'] = Order::getDetailsByID($id);
+        $pdf = PDF::loadView('templates.factura', $data);
+        return $pdf->stream('comprobante_'.$order['customer'].'_'.$order['date'].'.pdf');        
+        //return $pdf->download('afip_'.$today.'.pdf');
+        //return view('templates.factura', $data);
+
     }
 }

@@ -89,7 +89,5 @@
             document.getElementById('initial-content').style.display = 'block';
         </script>
 
-        <script src="{{ _asset('js/vendor.js') }}" defer></script>
-        <script src="{{ _asset('js/backoffice.js') }}" defer></script>
     </body>
 </html>

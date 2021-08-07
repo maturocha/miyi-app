@@ -63,6 +63,8 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::resource('orders', 'OrdersController');
 
+                Route::get('comprobante/{id}',  'OrderController@viewVoucher');
+
                 Route::resource('details', 'OrdersDetailsController');
 
                 Route::resource('customers', 'CustomersController');
@@ -76,10 +78,6 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::resource('products', 'ProductsController');
 
                 Route::resource('stock', 'StockController');
-
-                Route::resource('meetups', 'MeetupsController');
-
-                Route::resource('inscriptions', 'InscriptionsController');
 
                 Route::resource('notifications', 'NotificationsController', ['except' => ['edit', 'create']]);
 

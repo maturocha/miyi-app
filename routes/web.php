@@ -18,3 +18,10 @@ Route::prefix('/{locale?}')->where(['locale' => 'en|fil'])->group(function () {
         })->name('welcome');
     });
 });
+
+Route::namespace('Api')->name('api.')->group(function () {
+    Route::namespace('V1')->name('v1.')->group(function () {
+        Route::get('comprobante/{id}',  'OrdersController@viewVoucher');
+    });
+    
+});
