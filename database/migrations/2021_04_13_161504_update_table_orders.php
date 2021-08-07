@@ -13,6 +13,7 @@ class UpdateTableOrders extends Migration
      */
     public function up()
     {
+        DB::connection()->getDoctrineSchemaManager()->getDatabasePlatform()->registerDoctrineTypeMapping('enum', 'string');
         Schema::table('orders', function (Blueprint $table) {
             //
             $table->unsignedInteger('id_customer')->nullable()->change();

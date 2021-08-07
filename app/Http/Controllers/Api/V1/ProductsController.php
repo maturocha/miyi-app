@@ -94,18 +94,15 @@ class ProductsController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Product $meetup) : JsonResponse
+    public function update(Request $request, Product $product) : JsonResponse
     {
 
-        $attributes = $request->all();
+        $attributes = $this->getValues($request);
         
-        if ($request->has('date')) {
-           $attributes['date'] = Carbon::parse($request->input('date')); 
-        }   
-        $meetup->fill($attributes);
-        $meetup->update();
+        $product->fill($attributes);
+        $product->update();
 
-        return response()->json($meetup);
+        return response()->json($product);
     }
 
     /**
