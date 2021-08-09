@@ -10,7 +10,7 @@ class Order_details extends Model
   protected $table = 'order_details';
   protected $primaryKey = 'id';
   protected $fillable = [
-      'id_order', 'id_product', 'quantity', 'discount', 'price_unit', 'price_final'
+      'id_order', 'id_product', 'quantity', 'discount', 'price_unit', 'price_final', 'weight'
   ];
 
   public function getRecordTitle()

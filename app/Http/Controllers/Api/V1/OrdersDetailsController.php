@@ -80,18 +80,18 @@ class OrdersDetailsController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Order $order) : JsonResponse
+    public function update(Request $request, Order_Details $detail) : JsonResponse
     {
 
-        $attributes = $request->all();
-        
-        if ($request->has('date')) {
-           $attributes['date'] = Carbon::parse($request->input('date')); 
-        }   
-        $order->fill($attributes);
-        $order->update();
+        $attributes = [
+            'price_final' => $request->input('price_final'),
+            'weight' => $request->input('weight'),
+        ];
+         
+        $detail->fill($attributes);
+        $detail->update();
 
-        return response()->json($order);
+        return response()->json($detail);
     }
 
     /**
