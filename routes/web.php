@@ -22,6 +22,7 @@ Route::prefix('/{locale?}')->where(['locale' => 'en|fil'])->group(function () {
 Route::namespace('Api')->name('api.')->group(function () {
     Route::namespace('V1')->name('v1.')->group(function () {
         Route::get('comprobante/{id}',  'OrdersController@viewVoucher');
+        Route::get('listado/exportar', 'SummaryController@export');
     });
     
 });
