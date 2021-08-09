@@ -156,7 +156,7 @@ class UsersController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $users = User::orderBy(
-            $request->input('sortBy') ?? 'username',
+            $request->input('sortBy') ?? 'id',
             $request->input('sortType') ?? 'ASC'
         );
 
