@@ -73,6 +73,8 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::resource('zones', 'ZonesController');
 
+                Route::resource('neighborhoods', 'NeighborhoodController');
+
                 Route::resource('categories', 'CategoriesController');
 
                 Route::resource('products', 'ProductsController');

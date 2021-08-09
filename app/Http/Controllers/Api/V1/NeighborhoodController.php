@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Customer;
+use App\Neighborhood;
+use DB;
+
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -10,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 
-class CustomersController extends Controller
+class NeighborhoodController extends Controller
 {
     /**
      * List all resource.
@@ -33,80 +35,62 @@ class CustomersController extends Controller
      */
     public function store(Request $request) : JsonResponse
     {
+        $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
 
-        $values = $request->all();
 
-        $customer = Customer::create($values);
+        $neighborhood = Neighborhood::create([
+            'name' => $request->input('name'),
+        ]);
 
-        if ($customer) {
-            $response = response()->json($customer, 201);
-        } else {
-            $response = response()->json(['data' => 'Resource can not be created'], 500);
-        }
-
-        return $response;
-        
+        return response()->json($neighborhood, 201);
     }
 
     /**
      * Show a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Neighborhood $neighborhood
      *
      * @return Illuminate\Http\JsonResponse
      */
-
-     
-    public function show(Request $request, Customer $customer) : JsonResponse
-
+    public function show(Request $request, Neighborhood $neighborhood) : JsonResponse
     {
-
-        return response()->json($customer);
-
-        // $order = Order::getByID($id);
-        // if ($order) {
-        //     $order['details'] = Order::getDetailsByID($id);
-        //     $response['data'] = $order;
-        //     $response = response()->json($response, 200);
-        // } else {
-        //     $response = response()->json(['data' => 'Resource not found'], 404);
-        // }
-        
-        // return $response;
-
+        return response()->json($neighborhood);
     }
 
     /**
      * Update a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Neighborhood $meetup
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Customer $customer) : JsonResponse
+    public function update(Request $request, Neighborhood $neighborhood) : JsonResponse
     {
+                
+        $neighborhood->fill([
+            'name' => $request->input('name'),
+            'slug' => _clean_string($request->input('name')),
+        ]);
+        $neighborhood->update();
 
-        $attributes = $request->all();
-        
-        $customer->fill($attributes);
-        $customer->update();
-
-        return response()->json($customer);
+        return response()->json($neighborhood);
     }
 
     /**
      * Destroy a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Meetup $meetup
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, Customer $customer) : JsonResponse
+    public function destroy(Request $request, Neighborhood $neighborhood) : JsonResponse
     {
-        $customer->delete();
+        $neighborhood->delete();
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -121,9 +105,9 @@ class CustomersController extends Controller
      */
     public function restore(Request $request, $id)
     {
-        $customer = Order::withTrashed()->where('id', $id)->first();
-        $customer->deleted_at = null;
-        $customer->update();
+        $neighborhood = Neighborhood::withTrashed()->where('id', $id)->first();
+        $neighborhood->deleted_at = null;
+        $neighborhood->update();
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -138,40 +122,36 @@ class CustomersController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $userid = \Auth::id();
-
-        $customers = Customer::orderBy(
+        $categories = Neighborhood::orderBy(
              $request->input('sortBy') ?? 'name',
              $request->input('sortType') ?? 'ASC'
         )
-
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
             return $query->where(function($q) use ($search) {
-                $q->where('fullname', 'like', "%$search%")
-                    ->orWhere('name', 'like', "%$search%");
+                        $q->where('name', 'like', "%$search%");
                    });
         })
-        ->whereNull('customers.deleted_at');
+        ->orderBy('name', 'ASC');
 
-        return $customers->paginate($request->input('perPage') ?? 40);
+        return $categories->paginate($request->input('perPage') ?? 40);
     }
 
     /**
      * Filter a specific column property
      *
-     * @param mixed $orders
+     * @param mixed $meetups
      * @param string $property
      * @param array $filters
      *
      * @return void
      */
-    protected function filter($orders, string $property, array $filters)
+    protected function filter($meetups, string $property, array $filters)
     {
         foreach ($filters as $keyword => $value) {
             // Needed since LIKE statements requires values to be wrapped by %
             if (in_array($keyword, ['like', 'nlike'])) {
-                $orders->where(
+                $meetups->where(
                     $property,
                     _to_sql_operator($keyword),
                     "%{$value}%"
@@ -180,7 +160,7 @@ class CustomersController extends Controller
                 return;
             }
 
-            $orders->where($property, _to_sql_operator($keyword), "{$value}");
+            $meetups->where($property, _to_sql_operator($keyword), "{$value}");
         }
     }
 }
