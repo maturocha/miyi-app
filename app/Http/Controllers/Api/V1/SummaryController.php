@@ -26,7 +26,7 @@ class SummaryController extends Controller
 
         switch ($type_export) {
             case 'cargas':
-                $data['date'] = $request->input('date', '');
+                $data['date'] = Carbon::parse($request->input('date', ''))->format('d/m/Y');
                 $data['title'] = ($own_product) ? 'Listado de cargas propio' : 'Listado de cargas Erramuspe';
 
                 $data['title_zone'] = Zone::find($zone)->name;
