@@ -168,6 +168,7 @@ footer hr {
             <th class="service">Cant</th>
             <th class="desc">Producto</th>
             <th>Precio unidad</th>
+            <th>Peso</th>
             <th>Descuento</th>
             <th>Total</th>
           </tr>
@@ -177,30 +178,31 @@ footer hr {
             
           <tr>
             <td class="service">{{ $detail->quantity }}</td>
-            <td class="desc">{{ $detail->product }}</td>
-            <td class="unit">{{ $detail->price_unit }}</td>
+            <td class="desc">{{ $detail->name }}</td>
+            <td class="unit">${{ $detail->price_unit }} {{($detail->type_product == 'w') ? '/kg' : '' }}</td>
+            <td class="unit">{{($detail->type_product == 'w') ? $detail->weight .' kg' : '-' }}</td>
             <td class="qty">{{ $detail->discount }} %</td>
             <td class="total">{{  number_format((float)$detail->price_final, 2) }}</td>
           </tr>
             
         @endforeach
           <tr>
-            <td colspan="4">SUBTOTAL</td>
+            <td colspan="5">SUBTOTAL</td>
             
             <td class="total">${{ number_format((float)$order['total_bruto'], 2) }}</td>
           </tr>
           <tr>
-            <td colspan="4">DTO GRAL</td>
+            <td colspan="5">DTO GRAL</td>
             
             <td class="total">{{ number_format((float)$order['discount']) }}%</td>
           </tr>
           <tr>
-            <td colspan="4">ENVIO</td>
+            <td colspan="5">ENVIO</td>
             
             <td class="total">${{ number_format((float)$order['delivery_cost'], 2) }}</td>
           </tr>
           <tr>
-            <td colspan="4" class="grand total">TOTAL</td>
+            <td colspan="5" class="grand total">TOTAL</td>
             <td class="grand total">${{ number_format((float)$order['total'], 2) }}</td>
           </tr>
         </tbody>
