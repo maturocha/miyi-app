@@ -158,6 +158,19 @@ class ProductsController extends Controller
                         ->orWhere('name', 'like', "%$search%");
                    });
         })
+        ->when($request->has('stock'), function ($query) use ($request) {
+            
+            return $query->where(function($queryContainer){
+                $queryContainer->where(function($q){
+                    $q->where('stock','>',0)
+                        ->where('own_product','=',1);
+                    })
+                    ->orwhere(function($q){
+                        $q->where('stock','<>',0)
+                        ->where('own_product','=', 0);
+                        });    
+                });
+        })
         ->when($request->has('category'), function ($query) use ($request) {
             $category = $request->input('category');
             $query->where(function ($query) use ($category) {
