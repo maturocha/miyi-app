@@ -158,7 +158,7 @@ class OrdersController extends Controller
                 });
             })
             ->orderBy(
-             $request->input('sortBy') ?? 'created_at',
+             'orders.id',
              $request->input('sortType') ?? 'DESC'
         )->select('orders.*', 'customers.name as customer');
 
