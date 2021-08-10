@@ -76,9 +76,9 @@ class StockController extends Controller
     public function show($id) : JsonResponse
 
     {
-        $order = Order::getByID($id);
+        $order = Stock::getByID($id);
         if ($order) {
-            $order['details'] = Order::getDetailsByID($id);
+            $order['details'] = Stock::getDetailsByID($id);
             $response['data'] = $order;
             $response = response()->json($response, 200);
         } else {
