@@ -47,13 +47,14 @@ class StockController extends Controller
         $details = [];
         if ($stock) {
             foreach ($items as $item) {
-                $details['id_stock'] = $stock->id;
-                $details['id_product'] = $item['id_product'];
-                $details['quantity'] = $request->input('type') == 'in' ? $item['quantity'] : -abs($item['quantity']);
+                $aux['id_stock'] = $stock->id;
+                $aux['id_product'] = $item['id_product'];
+                $aux['quantity'] = $request->input('type') == 'in' ? $item['quantity'] : -abs($item['quantity']);
                 if ($request->input('type') == 'in') {
-                    $details['id_provider'] = ($item['id_provider']) ? $item['id_provider'] : null;
-                    $details['price_purchase'] = ($item['price_purchase']) ? $item['price_purchase'] : null;
+                    $aux['id_provider'] = ($item['id_provider']) ? $item['id_provider'] : null;
+                    $aux['price_purchase'] = ($item['price_purchase']) ? $item['price_purchase'] : null;
                 }
+                $details[] = $aux;
             }
             Stock_details::insert($details);
             $response = response()->json($stock, 201);
