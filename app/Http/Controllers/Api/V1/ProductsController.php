@@ -83,6 +83,9 @@ class ProductsController extends Controller
     {
         $response['data'] = $product;
         $response['data']['image'] = $product->getImages();
+        $response['data']['history_prices'] = $product->historyPrices();
+        $response['data']['history_stock'] = $product->stockMoving();
+        $response['data']['history_sales'] = $product->orderMoving();
         return response()->json($response, 200);
     }
 
@@ -171,8 +174,8 @@ class ProductsController extends Controller
                         });    
                 });
         })
-        ->when($request->has('category'), function ($query) use ($request) {
-            $category = $request->input('category');
+        ->when($request->has('id_category'), function ($query) use ($request) {
+            $category = $request->input('id_category');
             $query->where(function ($query) use ($category) {
                 $query->where('id_category', '=', "$category");
             });

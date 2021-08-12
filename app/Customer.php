@@ -46,7 +46,7 @@ class Customer extends Model
   {
       return $this->where('customers.id', '=', $this->id)
                   ->join('orders','orders.id_customer','=','customers.id')
-                  ->select('orders.id', 'orders.date', 'orders.total')
+                  ->select('orders.date', 'orders.total', 'orders.id')
                   ->orderBy('orders.date', 'DESC')
                   ->get()
                   ->take(10);

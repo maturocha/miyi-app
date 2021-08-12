@@ -156,9 +156,9 @@ class StockController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
 
-        $stock = Stock::orderBy(
-            $request->input('sortBy') ?? 'id',
-            $request->input('sortType') ?? 'DESC'
+        $stock = Stock::getAll()->orderBy(
+            'id',
+            'DESC'
        );
 
         return $stock->paginate($request->input('perPage') ?? 40);

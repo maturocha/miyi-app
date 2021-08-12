@@ -4,6 +4,7 @@ namespace App;
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use DB;
 
 class Stock extends Model
 {
@@ -16,6 +17,16 @@ class Stock extends Model
   public function getRecordTitle()
   {
       return 'Carga de stock del ' . Carbon::parse($this->date)->format('d/m/Y') ;
+  }
+
+  public static function getAll() {
+    return self::join('users','stocks.id_user','=','users.id')
+                ->join('stock_details','stock_details.id_stock','=','stocks.id')
+                ->join('products','stock_details.id_product','=','products.id')
+                ->select('stocks.id', 'stocks.date', 'stocks.type', 'users.name',
+                DB::raw('group_concat(products.name separator ", ") AS details'),)
+                ->groupBy('stocks.id');
+
   }
 
   public static function getByID($id) {

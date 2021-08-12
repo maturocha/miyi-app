@@ -58,22 +58,20 @@ class CustomersController extends Controller
      */
 
      
-    public function show(Request $request, Customer $customer) : JsonResponse
+    public function show($id) : JsonResponse
 
     {
 
-        return response()->json($customer);
-
-        // $order = Order::getByID($id);
-        // if ($order) {
-        //     $order['details'] = Order::getDetailsByID($id);
-        //     $response['data'] = $order;
-        //     $response = response()->json($response, 200);
-        // } else {
-        //     $response = response()->json(['data' => 'Resource not found'], 404);
-        // }
+        $customer = Customer::getByID($id);
+        if ($customer) {
+            $customer['details'] = $customer->getOrders();
+            $response['data'] = $customer;
+            $response = response()->json($response, 200);
+        } else {
+            $response = response()->json(['data' => 'Resource not found'], 404);
+        }
         
-        // return $response;
+        return $response;
 
     }
 
@@ -152,6 +150,13 @@ class CustomersController extends Controller
                     ->orWhere('name', 'like', "%$search%");
                    });
         })
+        ->when($request->has('id_zone'), function ($query) use ($request) {        
+            $zone = $request->input('id_zone');
+            $query->join('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
+            ->join('zones','zones.id','=','neighborhoods.id_zone')
+            ->where('zones.id', '=', "$zone");   
+        })
+        ->select('customers.*')
         ->whereNull('customers.deleted_at');
 
         return $customers->paginate($request->input('perPage') ?? 40);

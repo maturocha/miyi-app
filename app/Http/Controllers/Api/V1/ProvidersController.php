@@ -138,7 +138,8 @@ class ProvidersController extends Controller
                 $q->where('fullname', 'like', "%$search%")
                     ->orWhere('enterprise', 'like', "%$search%");
                    });
-        });
+        })
+        ->select('providers.*' , 'providers.fullname as name');
 
         return $providers->paginate($request->input('perPage') ?? 40);
     }

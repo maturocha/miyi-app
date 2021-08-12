@@ -132,21 +132,21 @@ class Product extends Model
                 ->get();
   }
 
-  public static function getStockMoving($id, $from, $to, $options) {
-    return self::join('stock_details','products.id','=','stock_details.id_product')
-                ->join('stocks','stocks.id','=','stock_details.id_stock')
-                ->join('categories','products.id_category','=','categories.id')
-                ->join('colors','stock_details.id_color','=','colors.id')
-                ->when($id, function ($q, $id) {
-                  return $q->where('products.id', '=', $id);
-                })
-                ->whereIn('stocks.type', $options)
-                ->whereBetween('stocks.date', [$from, $to])
-                ->orderBy('stocks.date')
-                ->select('stocks.date', 'stocks.id', 'products.name as product', 'stocks.type', 'categories.name as category', 'stock_details.size', 'colors.name as color', 'stock_details.quantity')
-                ->get();
+  // public static function getStockMoving($id, $from, $to, $options) {
+  //   return self::join('stock_details','products.id','=','stock_details.id_product')
+  //               ->join('stocks','stocks.id','=','stock_details.id_stock')
+  //               ->join('categories','products.id_category','=','categories.id')
+  //               ->join('colors','stock_details.id_color','=','colors.id')
+  //               ->when($id, function ($q, $id) {
+  //                 return $q->where('products.id', '=', $id);
+  //               })
+  //               ->whereIn('stocks.type', $options)
+  //               ->whereBetween('stocks.date', [$from, $to])
+  //               ->orderBy('stocks.date')
+  //               ->select('stocks.date', 'stocks.id', 'products.name as product', 'stocks.type', 'categories.name as category', 'stock_details.size', 'colors.name as color', 'stock_details.quantity')
+  //               ->get();
 
-  }
+  // }
 
   public static function getSalesMoving($id, $from, $to) {
     return self::join('sale_details','products.id','=','sale_details.id_product')
@@ -168,6 +168,38 @@ class Product extends Model
                 ->where('products.id', '=', $this->id)
                 ->select('images.path')
                 ->first();
+
+  }
+
+  public function stockMoving() {
+    return self::join('stock_details','products.id','=','stock_details.id_product')
+                ->join('stocks','stock_details.id_stock','=','stocks.id')
+                ->where('products.id', '=', $this->id)
+                ->select('stock_details.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
+                ->orderBy('stock_details.created_at', 'DESC')
+                ->groupBy('stock_details.id')
+                ->get();
+
+  }
+
+  public function orderMoving() {
+    return self::join('order_details','products.id','=','order_details.id_product')
+                ->join('orders','order_details.id_order','=','orders.id')
+                ->where('products.id', '=', $this->id)
+                ->select('order_details.created_at as date', 'orders.id', DB::raw('SUM(order_details.quantity) as quantity'))
+                ->orderBy('order_details.created_at', 'DESC')
+                ->groupBy('order_details.id')
+                ->get();
+
+  }
+
+  public function historyPrices() {
+    return self::join('stock_details','products.id','=','stock_details.id_product')
+                ->join('providers','providers.id','=','stock_details.id_provider')
+                ->where('products.id', '=', $this->id)
+                ->where('stock_details.price_purchase', '>', 0)
+                ->select('stock_details.created_at as date', 'stock_details.price_purchase as price', 'providers.fullname as provider')
+                ->get();
 
   }
 
