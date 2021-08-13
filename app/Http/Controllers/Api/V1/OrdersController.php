@@ -157,6 +157,12 @@ class OrdersController extends Controller
                     $query->where('orders.id', '=', "$search");
                 });
             })
+            ->when($request->has('id_zone'), function ($query) use ($request) {        
+                $zone = $request->input('id_zone');
+                $query->join('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
+                ->join('zones','zones.id','=','neighborhoods.id_zone')
+                ->where('zones.id', '=', "$zone");   
+            })
             ->orderBy(
              'orders.id',
              $request->input('sortType') ?? 'DESC'

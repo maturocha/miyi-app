@@ -195,10 +195,9 @@ class Product extends Model
 
   public function historyPrices() {
     return self::join('stock_details','products.id','=','stock_details.id_product')
-                ->join('providers','providers.id','=','stock_details.id_provider')
                 ->where('products.id', '=', $this->id)
                 ->where('stock_details.price_purchase', '>', 0)
-                ->select('stock_details.created_at as date', 'stock_details.price_purchase as price', 'providers.fullname as provider')
+                ->select('stock_details.created_at as date', 'stock_details.price_purchase as price')
                 ->get();
 
   }

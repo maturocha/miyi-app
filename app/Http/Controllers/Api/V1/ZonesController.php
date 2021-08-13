@@ -42,7 +42,7 @@ class ZonesController extends Controller
 
         $zone = Zone::create([
             'name' => $request->input('name'),
-            'slug' => _clean_string($request->input('name')),
+            'code' => $request->input('code'),
         ]);
 
         return response()->json($zone, 201);
@@ -56,9 +56,9 @@ class ZonesController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function show(Request $request, Category $category) : JsonResponse
+    public function show(Request $request, Zone $zone) : JsonResponse
     {
-        return response()->json($category);
+        return response()->json($zone);
     }
 
     /**
@@ -69,16 +69,15 @@ class ZonesController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Category $category) : JsonResponse
+    public function update(Request $request, Zone $zone) : JsonResponse
     {
                 
-        $category->fill([
-            'name' => $request->input('name'),
-            'slug' => _clean_string($request->input('name')),
-        ]);
-        $category->update();
+        $attributes = $request->all();
+        
+        $zone->fill($attributes);
+        $zone->update();
 
-        return response()->json($category);
+        return response()->json($zone);
     }
 
     /**
