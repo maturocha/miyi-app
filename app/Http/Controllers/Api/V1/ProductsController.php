@@ -180,13 +180,13 @@ class ProductsController extends Controller
                 $query->where('id_category', '=', "$category");
             });
         })
-        ->when($request->has('provider'), function ($query) use ($request) {
-            $provider = $request->input('provider');
+        ->when($request->has('id_provider'), function ($query) use ($request) {
+            $provider = $request->input('id_provider');
             $query->join('stock_details','products.id','=','stock_details.id_product')
                 ->where('id_provider', '=', "$provider");
             
         })
-        
+        ->select('products.*')
         ->groupBy('products.id')
         ->orderBy('name', 'ASC')
         ->whereNull('products.deleted_at');
