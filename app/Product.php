@@ -175,8 +175,8 @@ class Product extends Model
     return self::join('stock_details','products.id','=','stock_details.id_product')
                 ->join('stocks','stock_details.id_stock','=','stocks.id')
                 ->where('products.id', '=', $this->id)
-                ->select('stock_details.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
-                ->orderBy('stock_details.created_at', 'DESC')
+                ->select('stocks.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
+                ->orderBy('stocks.created_at', 'DESC')
                 ->groupBy('stock_details.id')
                 ->get();
 
