@@ -123,4 +123,15 @@ class Order extends Model
                 ->get();
   }
 
+  public static function getOrderByDate($from, $to, $user) {
+    return self::whereBetween('orders.date', [$from, $to])
+                ->join('users','orders.id_user','=','users.id')
+                ->when($user->role_id <> 1, function ($query) use ($user) {
+                  $query->where('orders.id_user', '=', $user->id);
+                })
+                ->select('users.name', DB::raw('ROUND(sum(orders.total), 2) as total'))
+                ->groupBy('users.id')
+                ->get();
+  }
+
 }

@@ -6,6 +6,7 @@ use App\Zone;
 use App\Order;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\JsonResponse;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -60,6 +61,18 @@ class SummaryController extends Controller
         //return view($template, $data);    
 
         return $list;
+    }
+
+    public function raises(Request $request)  : JsonResponse  {
+
+        $user = Auth::user();
+
+        $date = Carbon::parse($request->input('date', ''))->format('Y-m-d');
+        $list = Order::getOrderByDate($date, $date, $user);
+
+        return response()->json($list);
+
+
     }
 
     
