@@ -116,11 +116,13 @@ class ProductsController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, Product $meetup) : JsonResponse
+    public function destroy(Request $request, Product $product) : JsonResponse
     {
-        $meetup->delete();
+        
+        $product->delete();
 
-        return response()->json($this->paginatedQuery($request));
+        return response()->json($product);
+
     }
 
     /**
@@ -133,9 +135,9 @@ class ProductsController extends Controller
      */
     public function restore(Request $request, $id)
     {
-        $meetup = Meetup::withTrashed()->where('id', $id)->first();
-        $meetup->deleted_at = null;
-        $meetup->update();
+        $product = Product::withTrashed()->where('id', $id)->first();
+        $product->deleted_at = null;
+        $product->update();
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -188,8 +190,8 @@ class ProductsController extends Controller
         })
         ->select('products.*')
         ->groupBy('products.id')
-        ->orderBy('name', 'ASC')
-        ->whereNull('products.deleted_at');
+        ->orderBy('name', 'ASC');
+        //->whereNull('products.deleted_at');
 
         return $products->paginate($request->input('perPage') ?? 40);
     }

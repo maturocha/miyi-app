@@ -125,11 +125,17 @@ class Order extends Model
 
   public static function getOrderByDate($from, $to, $user) {
     return self::whereBetween('orders.date', [$from, $to])
+                ->join('customers','orders.id_customer','=','customers.id')
+                ->join('neighborhoods','customers.id_neighborhood','=','neighborhoods.id')
+                ->join('zones','neighborhoods.id_zone','=','zones.id')
                 ->join('users','orders.id_user','=','users.id')
                 ->when($user->role_id <> 1, function ($query) use ($user) {
                   $query->where('orders.id_user', '=', $user->id);
                 })
-                ->select('users.name', DB::raw('ROUND(sum(orders.total), 2) as total'))
+                ->select('zones.id as zone_id', 'zones.name as zone', 'users.id as id_user','users.name as name_user', DB::raw('ROUND(sum(orders.total), 2) as total'))
+                ->orderBy('zones.id',  'asc')
+                ->orderBy('users.id',  'asc')
+                ->groupBy('zones.id')
                 ->groupBy('users.id')
                 ->get();
   }
