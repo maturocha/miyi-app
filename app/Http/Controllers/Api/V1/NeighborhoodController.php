@@ -37,11 +37,12 @@ class NeighborhoodController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'id_zone' => 'required',
         ]);
-
 
         $neighborhood = Neighborhood::create([
             'name' => $request->input('name'),
+            'id_zone' => $request->input('id_zone', '')
         ]);
 
         return response()->json($neighborhood, 201);
@@ -70,11 +71,10 @@ class NeighborhoodController extends Controller
      */
     public function update(Request $request, Neighborhood $neighborhood) : JsonResponse
     {
-                
-        $neighborhood->fill([
-            'name' => $request->input('name'),
-            'slug' => _clean_string($request->input('name')),
-        ]);
+
+        $attributes = $request->all();
+        
+        $neighborhood->fill($attributes);
         $neighborhood->update();
 
         return response()->json($neighborhood);
@@ -122,19 +122,20 @@ class NeighborhoodController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $categories = Neighborhood::orderBy(
+        $neighborhoods = Neighborhood::join('zones','neighborhoods.id_zone','=','zones.id')
+        ->orderBy(
              $request->input('sortBy') ?? 'name',
              $request->input('sortType') ?? 'ASC'
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
             return $query->where(function($q) use ($search) {
-                        $q->where('name', 'like', "%$search%");
+                        $q->where('neighborhoods.name', 'like', "%$search%");
                    });
         })
-        ->orderBy('name', 'ASC');
+        ->select('neighborhoods.*', 'zones.name as zone');
 
-        return $categories->paginate($request->input('perPage') ?? 40);
+        return $neighborhoods->paginate($request->input('perPage') ?? 40);
     }
 
     /**

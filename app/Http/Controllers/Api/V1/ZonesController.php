@@ -52,7 +52,7 @@ class ZonesController extends Controller
      * Show a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\category $category
+     * @param App\Zone $Zone
      *
      * @return Illuminate\Http\JsonResponse
      */
@@ -65,7 +65,7 @@ class ZonesController extends Controller
      * Update a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\category $meetup
+     * @param App\Zone $zone
      *
      * @return Illuminate\Http\JsonResponse
      */
@@ -84,13 +84,13 @@ class ZonesController extends Controller
      * Destroy a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\Meetup $meetup
+     * @param App\Meetup $zone
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, Category $category) : JsonResponse
+    public function destroy(Request $request, Zone $zone) : JsonResponse
     {
-        $category->delete();
+        $zone->delete();
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -105,9 +105,9 @@ class ZonesController extends Controller
      */
     public function restore(Request $request, $id)
     {
-        $category = Category::withTrashed()->where('id', $id)->first();
-        $category->deleted_at = null;
-        $category->update();
+        $zone = Zone::withTrashed()->where('id', $id)->first();
+        $zone->deleted_at = null;
+        $zone->update();
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -122,7 +122,7 @@ class ZonesController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $categories = Zone::orderBy(
+        $zones = Zone::orderBy(
              $request->input('sortBy') ?? 'name',
              $request->input('sortType') ?? 'ASC'
         )
@@ -135,24 +135,24 @@ class ZonesController extends Controller
         })
         ->orderBy('code', 'ASC');
 
-        return $categories->paginate($request->input('perPage') ?? 40);
+        return $zones->paginate($request->input('perPage') ?? 40);
     }
 
     /**
      * Filter a specific column property
      *
-     * @param mixed $meetups
+     * @param mixed $zones
      * @param string $property
      * @param array $filters
      *
      * @return void
      */
-    protected function filter($meetups, string $property, array $filters)
+    protected function filter($zones, string $property, array $filters)
     {
         foreach ($filters as $keyword => $value) {
             // Needed since LIKE statements requires values to be wrapped by %
             if (in_array($keyword, ['like', 'nlike'])) {
-                $meetups->where(
+                $zones->where(
                     $property,
                     _to_sql_operator($keyword),
                     "%{$value}%"
@@ -161,7 +161,7 @@ class ZonesController extends Controller
                 return;
             }
 
-            $meetups->where($property, _to_sql_operator($keyword), "{$value}");
+            $zones->where($property, _to_sql_operator($keyword), "{$value}");
         }
     }
 }
