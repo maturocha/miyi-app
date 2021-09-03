@@ -152,11 +152,7 @@ class ProductsController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $products = Product::orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
-        )
-        ->when($request->has('search'), function ($query) use ($request) {
+        $products = Product::when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
             return $query->where(function($q) use ($search) {
                         $q->where('code_miyi', 'like', "%$search%")
@@ -190,7 +186,7 @@ class ProductsController extends Controller
         })
         ->select('products.*')
         ->groupBy('products.id')
-        ->orderBy('name', 'ASC');
+        ->orderBy('products.name', 'asc');
         //->whereNull('products.deleted_at');
 
         return $products->paginate($request->input('perPage') ?? 40);
