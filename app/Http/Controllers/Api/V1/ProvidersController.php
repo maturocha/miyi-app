@@ -34,10 +34,10 @@ class ProvidersController extends Controller
     public function store(Request $request) : JsonResponse
     {
 
-        $values = [];
+        $values = $request->all();
         $provider = Provider::create($values);
 
-        if ($Provider) {
+        if ($provider) {
             $response = response()->json($provider, 201);
         } else {
             $response = response()->json(['data' => 'Resource can not be created'], 500);
@@ -61,7 +61,9 @@ class ProvidersController extends Controller
 
     {
 
-        return response()->json($provider);
+        $response['data'] = $provider;
+
+        return response()->json($response);
 
     }
 
