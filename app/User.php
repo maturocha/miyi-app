@@ -22,6 +22,8 @@ class User extends Authenticatable implements JWTSubject, Uploader
      */
     protected $guarded = [];
 
+    protected $fillable = ['name', 'email', 'role_id'];
+
     /**
      * The attributes that should be hidden for arrays.
      *
@@ -31,20 +33,6 @@ class User extends Authenticatable implements JWTSubject, Uploader
         'password', 'remember_token',
     ];
 
-    /**
-     * The attributes used for uploads.
-     *
-     * @var array
-     */
-    protected $uploadAttributes = [
-        'directory',
-        'filename',
-        'original_filename',
-        'filesize',
-        'thumbnail_filesize',
-        'url',
-        'thumbnail_url'
-    ];
 
     /**
      * Get the directory for uploads.
@@ -64,5 +52,31 @@ class User extends Authenticatable implements JWTSubject, Uploader
     public function getUploadAttributes() : array
     {
         return $this->uploadAttributes;
+    }
+
+      
+    /**
+     * Hash password
+     * @param $input
+     */
+    public function setPasswordAttribute($input)
+    {
+        if ($input)
+            $this->attributes['password'] = app('hash')->needsRehash($input) ? Hash::make($input) : $input;
+    }
+    
+
+    /**
+     * Set to null if empty
+     * @param $input
+     */
+    public function setRoleIdAttribute($input)
+    {
+        $this->attributes['role_id'] = $input ? $input : null;
+    }
+    
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
     }
 }

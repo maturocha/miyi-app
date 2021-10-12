@@ -49,6 +49,8 @@ Route::namespace('Api')->name('api.')->group(function () {
                     });
                 });
 
+                Route::resource('roles', 'RolesController');
+
                 Route::resource('users', 'UsersController', ['except' => ['edit', 'create']]);
                 Route::prefix('users')->name('users.')->group(function () {
                     Route::patch('{user}/restore', 'UsersController@restore')->name('restore');

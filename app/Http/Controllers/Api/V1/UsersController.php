@@ -155,10 +155,11 @@ class UsersController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $users = User::orderBy(
-            $request->input('sortBy') ?? 'id',
+        $users = User::leftjoin('roles','roles.id','=','users.role_id')
+        ->orderBy(
+            $request->input('sortBy') ?? 'users.id',
             $request->input('sortType') ?? 'ASC'
-        );
+        )->select('users.*', 'roles.title as rol');
 
         if ($type = $request->input('type')) {
             $this->filter($users, 'type', $type);
