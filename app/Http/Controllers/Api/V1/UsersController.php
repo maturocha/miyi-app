@@ -33,32 +33,22 @@ class UsersController extends Controller
     public function store(Request $request) : JsonResponse
     {
         $request->validate([
-            'firstname' => 'required_if:step,0|string|max:255',
-            'lastname' => 'required_if:step,0|string|max:255',
-            'type' => 'required_if:step,1|in:superuser,user',
-            'email' => 'required_if:step,1|email|unique:users,email,NULL,id,deleted_at,NULL',
-            'username' => 'nullable|unique:users,username,NULL,id,deleted_at,NULL'
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,NULL,id,deleted_at,NULL',
+            'role_id' => 'required',
+            'cel' => 'required',
+            'password' => 'required',
+            //'username' => 'nullable|unique:users,username,NULL,id,deleted_at,NULL'
         ]);
 
-        // Return here if the user is just in the first step.
-        if ($request->input('step') === 0) {
-            return response()->json(200);
-        }
 
         $user = User::create([
-            'type' => $request->input('type'),
-            'firstname' => ($firstname = $request->input('firstname')),
-            'middlename' => ($middlename = $request->input('middlename')),
-            'lastname' => ($lastname = $request->input('lastname')),
-
-            'gender' => $request->input('gender'),
-            'birthdate' => $request->input('birthdate'),
-            'address' => $request->input('address'),
-
-            'name' => "{$firstname} {$middlename} {$lastname}",
-
+            'name' => $request->input('name'),
             'email' => $request->input('email'),
-            'username' => $request->input('username'),
+            'role_id' => $request->input('role_id'),
+            'cel' => $request->input('cel'),
+            'password' => $request->input('password'),
+            //'username' => $request->input('username'),
         ]);
 
         return response()->json($user, 201);
@@ -159,7 +149,7 @@ class UsersController extends Controller
         ->orderBy(
             $request->input('sortBy') ?? 'users.id',
             $request->input('sortType') ?? 'ASC'
-        )->select('users.*', 'roles.title as rol');
+        )->select('users.*', 'roles.name as rol');
 
         if ($type = $request->input('type')) {
             $this->filter($users, 'type', $type);

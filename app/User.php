@@ -10,6 +10,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Hash;
 
 class User extends Authenticatable implements JWTSubject, Uploader
 {
@@ -22,7 +23,7 @@ class User extends Authenticatable implements JWTSubject, Uploader
      */
     protected $guarded = [];
 
-    protected $fillable = ['name', 'email', 'role_id'];
+    protected $fillable = ['name', 'email', 'cel', 'role_id', 'password'];
 
     /**
      * The attributes that should be hidden for arrays.
