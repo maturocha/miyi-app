@@ -189,7 +189,7 @@ class ProductsController extends Controller
         ->orderBy('products.name', 'asc');
         //->whereNull('products.deleted_at');
 
-        return $products->paginate($request->input('perPage') ?? 40);
+        return $products->paginate($request->input('perPage') ?? 5000);
     }
 
     /**

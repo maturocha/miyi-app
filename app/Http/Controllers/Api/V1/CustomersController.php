@@ -159,7 +159,7 @@ class CustomersController extends Controller
         ->select('customers.*')
         ->whereNull('customers.deleted_at');
 
-        return $customers->paginate($request->input('perPage') ?? 40);
+        return $customers->paginate($request->input('perPage') ?? 5000);
     }
 
     /**
