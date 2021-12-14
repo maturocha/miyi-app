@@ -23,6 +23,8 @@ Route::namespace('Api')->name('api.')->group(function () {
     Route::namespace('V1')->name('v1.')->group(function () {
         Route::get('comprobante/{id}',  'OrdersController@viewVoucher');
         Route::get('listado/exportar', 'SummaryController@export');
+
+        Route::get('products/export', 'ProductsController@export');
     });
     
 });

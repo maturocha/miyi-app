@@ -14,6 +14,9 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 
+use App\Exports\ProductsExport;
+use Maatwebsite\Excel\Facades\Excel;
+
 class ProductsController extends Controller
 {
     /**
@@ -26,6 +29,18 @@ class ProductsController extends Controller
     public function index(Request $request) : JsonResponse
     {
         return response()->json($this->paginatedQuery($request));
+    }
+
+        /**
+     * List all resource.
+     *
+     * @param Illuminate\Http\Request $request
+     *
+     * @return Illuminate\Http\JsonResponse
+     */
+    public function export()
+    {
+        return Excel::download(new ProductsExport, 'products.xlsx');
     }
 
     private function getValues(Request $request)
@@ -189,7 +204,7 @@ class ProductsController extends Controller
         ->orderBy('products.name', 'asc');
         //->whereNull('products.deleted_at');
 
-        return $products->paginate($request->input('perPage') ?? 5000);
+        return $products->paginate($request->input('perPage') ?? 40);
     }
 
     /**
