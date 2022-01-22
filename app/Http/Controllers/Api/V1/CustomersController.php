@@ -150,6 +150,11 @@ class CustomersController extends Controller
                     ->orWhere('name', 'like', "%$search%");
                    });
         })
+        ->when($request->has('id_neighborhood'), function ($query) use ($request) {        
+            $neighborhood = $request->input('id_neighborhood');
+            $query->join('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
+            ->where('neighborhoods.id', '=', "$neighborhood");   
+        })
         ->when($request->has('id_zone'), function ($query) use ($request) {        
             $zone = $request->input('id_zone');
             $query->join('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
