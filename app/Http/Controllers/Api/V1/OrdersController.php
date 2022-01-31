@@ -148,7 +148,7 @@ class OrdersController extends Controller
         $user = Auth::user();
 
         $orders = Order::leftjoin('customers','customers.id','=','orders.id_customer')
-            ->when($user->role_id <> 1, function ($query) use ($user) {
+            ->when(($user->role_id <> 1 && $user->role_id <> 3), function ($query) use ($user) {
                     $query->where('id_user', '=', $user->id);
             })
             ->when($request->has('search'), function ($query) use ($request) {
