@@ -50,10 +50,12 @@ Route::namespace('Api')->name('api.')->group(function () {
                 });
 
                 Route::resource('roles', 'RolesController');
-
+                
                 Route::resource('users', 'UsersController', ['except' => ['edit', 'create']]);
                 Route::prefix('users')->name('users.')->group(function () {
                     Route::patch('{user}/restore', 'UsersController@restore')->name('restore');
+
+                    Route::patch('{user}/change-password', 'Auth\ChangePasswordController@changePassword');
 
                     Route::prefix('{user}/avatar')->name('avatar.')->group(function () {
                         Route::post('/', 'UsersController@storeAvatar')->name('store');

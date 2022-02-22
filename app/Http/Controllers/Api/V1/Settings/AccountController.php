@@ -65,12 +65,12 @@ class AccountController extends Controller
                 'old_password' => [trans('auth.password_mismatch')]
             ]);
 
-            return response()->json('Password was not Changed!', 422);
+            return response()->json('Contraseña no actualizada!', 422);
         }
 
         $this->user->password = bcrypt($request->input('password'));
         $this->user->update();
 
-        return response()->json('Password Changed!');
+        return response()->json('Contraseña actualizada!');
     }
 }

@@ -22,7 +22,7 @@ class ForgotPasswordController extends Controller
     public function sendResetLinkEmail(Request $request) : JsonResponse
     {
         $request->validate([
-            'email' => 'required|email|exists:users'
+            'password' => 'required|min:6|confirmed'
         ]);
 
         $user = User::where('email', $request->input('email'))->first();
