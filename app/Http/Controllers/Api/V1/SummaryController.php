@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Zone;
 use App\Order;
+use App\Product;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
@@ -71,6 +72,26 @@ class SummaryController extends Controller
         $list = Order::getOrderByDate($date, $date, $user);
 
         return response()->json($list);
+
+
+    }
+
+    public function statistics(Request $request)  : JsonResponse  {
+
+        $user = Auth::user();
+        $pmq = Product::getRankQuantity('', 20);
+        $pmkg = Product::getRankKg('', 20);
+        $pms = Product::getRankPurchase('', 20);
+        $pmr = Product::getRentableProducts('', 20);
+
+        $data = [
+            'pmq' => $pmq,
+            'pmkg' => $pmkg,
+            'pms' => $pms,
+            'pmr' => $pmr
+        ];
+
+        return response()->json($data);
 
 
     }

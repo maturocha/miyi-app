@@ -87,6 +87,8 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::get('raises',  'SummaryController@raises');
 
+                Route::get('statistics',  'SummaryController@statistics');
+
                 Route::resource('notifications', 'NotificationsController', ['except' => ['edit', 'create']]);
 
             });

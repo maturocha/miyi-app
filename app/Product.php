@@ -4,6 +4,7 @@ namespace App;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\Carbon;
 use DB;
 
 class Product extends Model
@@ -203,5 +204,64 @@ class Product extends Model
                 ->get();
 
   }
+
+  public static function getRankQuantity($dates, $topList) {
+
+    return self::join('order_details','products.id','=','order_details.id_product')
+                ->join('orders','order_details.id_order','=','orders.id')
+                ->select('products.name', DB::raw('SUM(order_details.quantity) as total'))
+                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
+                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
+                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->orderByRaw('SUM(order_details.quantity) DESC')
+                ->groupBy('products.id')
+                ->take(20)->get();
+
+  }
+
+  public static function getRankKg($dates, $topList) {
+
+    return self::join('order_details','products.id','=','order_details.id_product')
+                ->join('orders','order_details.id_order','=','orders.id')
+                ->select('products.name', DB::raw('SUM(order_details.weight) as total'))
+                ->where('products.type_product', 'w')
+                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
+                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
+                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->orderByRaw('SUM(order_details.weight) DESC')
+                ->groupBy('products.id')
+                ->take(20)->get();
+
+  }
+
+  public static function getRankPurchase($dates, $topList) {
+
+    return self::join('order_details','products.id','=','order_details.id_product')
+                ->join('orders','order_details.id_order','=','orders.id')
+                ->select('products.name', DB::raw('ROUND(SUM(order_details.price_final), 2) as total'))
+                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
+                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
+                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->orderByRaw('SUM(order_details.price_final) DESC')
+                ->groupBy('products.id')
+                ->take(20)->get();
+
+  }
+
+  public static function getRentableProducts($dates, $topList) {
+
+    return self::join('order_details','products.id','=','order_details.id_product')
+                ->join('orders','order_details.id_order','=','orders.id')
+                ->select('products.name', DB::raw('ROUND(SUM(order_details.quantity * products.price_purchase * products.percentage_may / 100), 2) as total'))
+                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
+                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
+                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->orderByRaw('total DESC')
+                ->groupBy('products.id')
+                ->take(20)->get();
+
+  }
+
+
 
 }
