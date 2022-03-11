@@ -79,10 +79,12 @@ class SummaryController extends Controller
     public function statistics(Request $request)  : JsonResponse  {
 
         $user = Auth::user();
-        $pmq = Product::getRankQuantity('', 20);
-        $pmkg = Product::getRankKg('', 20);
-        $pms = Product::getRankPurchase('', 20);
-        $pmr = Product::getRentableProducts('', 20);
+        $start_date = Carbon::parse($request->input('start_date', ''))->format('Y-m-d');
+        $end_date = Carbon::parse($request->input('end_date', ''))->format('Y-m-d');
+        $pmq = Product::getRankQuantity([$start_date, $end_date], 20);
+        $pmkg = Product::getRankKg([$start_date, $end_date], 20);
+        $pms = Product::getRankPurchase([$start_date, $end_date], 20);
+        $pmr = Product::getRentableProducts([$start_date, $end_date], 20);
 
         $data = [
             'pmq' => $pmq,

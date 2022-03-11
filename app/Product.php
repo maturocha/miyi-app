@@ -210,9 +210,7 @@ class Product extends Model
     return self::join('order_details','products.id','=','order_details.id_product')
                 ->join('orders','order_details.id_order','=','orders.id')
                 ->select('products.name', DB::raw('SUM(order_details.quantity) as total'))
-                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
-                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
-                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->whereBetween('orders.date', [$dates[0], $dates[1]])
                 ->orderByRaw('SUM(order_details.quantity) DESC')
                 ->groupBy('products.id')
                 ->take(20)->get();
@@ -225,9 +223,7 @@ class Product extends Model
                 ->join('orders','order_details.id_order','=','orders.id')
                 ->select('products.name', DB::raw('SUM(order_details.weight) as total'))
                 ->where('products.type_product', 'w')
-                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
-                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
-                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->whereBetween('orders.date', [$dates[0], $dates[1]])
                 ->orderByRaw('SUM(order_details.weight) DESC')
                 ->groupBy('products.id')
                 ->take(20)->get();
@@ -239,9 +235,7 @@ class Product extends Model
     return self::join('order_details','products.id','=','order_details.id_product')
                 ->join('orders','order_details.id_order','=','orders.id')
                 ->select('products.name', DB::raw('ROUND(SUM(order_details.price_final), 2) as total'))
-                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
-                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
-                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->whereBetween('orders.date', [$dates[0], $dates[1]])
                 ->orderByRaw('SUM(order_details.price_final) DESC')
                 ->groupBy('products.id')
                 ->take(20)->get();
@@ -253,9 +247,7 @@ class Product extends Model
     return self::join('order_details','products.id','=','order_details.id_product')
                 ->join('orders','order_details.id_order','=','orders.id')
                 ->select('products.name', DB::raw('ROUND(SUM(order_details.quantity * products.price_purchase * products.percentage_may / 100), 2) as total'))
-                //->whereBetween('orders.date', [Carbon::now()->subMonth()->startOfMonth(), Carbon::now()->subMonth()->endOfMonth()])
-                ->whereRaw('MONTH(orders.date) = MONTH(CURRENT_DATE())')
-                ->whereRaw('YEAR(orders.date) = YEAR(CURRENT_DATE())')
+                ->whereBetween('orders.date', [$dates[0], $dates[1]])
                 ->orderByRaw('total DESC')
                 ->groupBy('products.id')
                 ->take(20)->get();
