@@ -163,10 +163,14 @@ class OrdersController extends Controller
                 ->join('zones','zones.id','=','neighborhoods.id_zone')
                 ->where('zones.id', '=', "$zone");   
             })
-            ->orderBy(
-             'orders.id',
-             $request->input('sortType') ?? 'DESC'
-        )->select('orders.*', 'customers.name as customer');
+           
+             ->orderBy(
+                'orders.date',
+                $request->input('sortType') ?? 'DESC')
+                ->orderBy(
+                    'orders.id',
+                    $request->input('sortType') ?? 'DESC')
+            ->select('orders.*', 'customers.name as customer');
 
         return $orders->paginate($request->input('perPage') ?? 40);
     }

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Zone;
 use App\Order;
 use App\Product;
+use App\Category;
+
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
@@ -85,12 +87,14 @@ class SummaryController extends Controller
         $pmkg = Product::getRankKg([$start_date, $end_date], 20);
         $pms = Product::getRankPurchase([$start_date, $end_date], 20);
         $pmr = Product::getRentableProducts([$start_date, $end_date], 20);
+        $cxc = Category::getComisionByCategory([$start_date, $end_date], 20);
 
         $data = [
             'pmq' => $pmq,
             'pmkg' => $pmkg,
             'pms' => $pms,
-            'pmr' => $pmr
+            'pmr' => $pmr,
+            'cxc'   => $cxc
         ];
 
         return response()->json($data);

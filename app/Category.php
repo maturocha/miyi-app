@@ -79,4 +79,17 @@ class Category extends Authenticatable
                     ->orderBy('products.name')
                     ->get();
   }
+
+  public static function getComisionByCategory($dates, $topList) {
+
+    return self::join('products','products.id_category','=','categories.id')
+                ->join('order_details','products.id','=','order_details.id_product')
+                ->join('orders','order_details.id_order','=','orders.id')
+                ->select('categories.name', DB::raw('ROUND(SUM(order_details.quantity * products.price_purchase * (products.percentage_may / 100) * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ), 2) as total'))
+                ->whereBetween('orders.date', [$dates[0], $dates[1]])
+                ->orderByRaw('total DESC')
+                ->groupBy('categories.id')
+                ->get();
+
+  }
 }
