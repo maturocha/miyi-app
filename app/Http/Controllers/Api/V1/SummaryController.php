@@ -6,6 +6,7 @@ use App\Zone;
 use App\Order;
 use App\Product;
 use App\Category;
+use App\Customer;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -88,13 +89,15 @@ class SummaryController extends Controller
         $pms = Product::getRankPurchase([$start_date, $end_date], 20);
         $pmr = Product::getRentableProducts([$start_date, $end_date], 20);
         $cxc = Category::getComisionByCategory([$start_date, $end_date], 20);
+        $cmc = Customer::getRankPurchase([$start_date, $end_date], 20);
 
         $data = [
             'pmq' => $pmq,
             'pmkg' => $pmkg,
             'pms' => $pms,
             'pmr' => $pmr,
-            'cxc'   => $cxc
+            'cxc'   => $cxc,
+            'cmc'   => $cmc
         ];
 
         return response()->json($data);

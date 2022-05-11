@@ -41,6 +41,7 @@ class StockController extends Controller
         $values['id_user'] = $userid;
         $values['date'] =  Carbon::now()->timezone('America/Argentina/Buenos_Aires');;
         $values['type'] =  $request->input('type', '');
+        $values['notes'] =  $request->input('notes', '');
         $stock = Stock::create($values);
         $items = $request->input('items', '');
 

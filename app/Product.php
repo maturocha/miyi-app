@@ -236,7 +236,7 @@ class Product extends Model
                 ->join('orders','order_details.id_order','=','orders.id')
                 ->select('products.name', DB::raw('ROUND(SUM(order_details.price_final * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ) , 2) as total'))
                 ->whereBetween('orders.date', [$dates[0], $dates[1]])
-                ->orderByRaw('SUM(order_details.price_final) DESC')
+                ->orderByRaw('total DESC')
                 ->groupBy('products.id')
                 ->take(20)->get();
 
@@ -246,7 +246,7 @@ class Product extends Model
 
     return self::join('order_details','products.id','=','order_details.id_product')
                 ->join('orders','order_details.id_order','=','orders.id')
-                ->select('products.name', DB::raw('ROUND(SUM(order_details.quantity * products.price_purchase * (products.percentage_may / 100) * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ), 2) as total'))
+                ->select('products.name', DB::raw('ROUND(SUM(order_details.quantity * (order_details.price_unit - products.price_purchase) * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ), 2) as total'))
                 ->whereBetween('orders.date', [$dates[0], $dates[1]])
                 ->orderByRaw('total DESC')
                 ->groupBy('products.id')

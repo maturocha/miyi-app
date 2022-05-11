@@ -52,5 +52,32 @@ class Customer extends Model
                   ->take(10);
   }
 
+  public function getProducts()
+  {
+      return $this->where('customers.id', '=', $this->id)
+                  ->join('orders','orders.id_customer','=','customers.id')
+                  ->join('order_details','orders.id','=','order_details.id_order')
+                  ->join('products','order_details.id_product','=','products.id')
+                  ->select('products.name', DB::raw('ROUND(SUM(order_details.price_final * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ) , 2) as total'))
+                  ->orderByRaw('total DESC')
+                  ->groupBy('products.id')
+                  ->take(20)->get();
+  }
+
+  
+
+  public static function getRankPurchase($dates, $topList) {
+
+    return self::join('orders','customers.id','=','orders.id_customer')
+                ->join('order_details','orders.id','=','order_details.id_order')
+                ->join('products','order_details.id_product','=','products.id')
+                ->select('customers.name', DB::raw('ROUND(SUM(order_details.price_final * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ) , 2) as total'))
+                ->whereBetween('orders.date', [$dates[0], $dates[1]])
+                ->orderByRaw('total DESC')
+                ->groupBy('customers.id')
+                ->take(20)->get();
+
+  }
+
 
 }

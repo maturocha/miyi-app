@@ -65,6 +65,7 @@ class CustomersController extends Controller
         $customer = Customer::getByID($id);
         if ($customer) {
             $customer['details'] = $customer->getOrders();
+            $customer['products'] = $customer->getProducts();
             $response['data'] = $customer;
             $response = response()->json($response, 200);
         } else {

@@ -11,7 +11,7 @@ class Stock extends Model
   protected $table = 'stocks';
   protected $primaryKey = 'id';
   protected $fillable = [
-      'date', 'id_user', 'type'
+      'date', 'id_user', 'type', 'notes'
   ];
 
   public function getRecordTitle()
@@ -23,7 +23,7 @@ class Stock extends Model
     return self::join('users','stocks.id_user','=','users.id')
                 ->join('stock_details','stock_details.id_stock','=','stocks.id')
                 ->join('products','stock_details.id_product','=','products.id')
-                ->select('stocks.id', 'stocks.date', 'stocks.type', 'users.name',
+                ->select('stocks.id', 'stocks.date', 'stocks.type', 'stocks.notes', 'users.name',
                 DB::raw('group_concat(products.name separator ", ") AS details'),)
                 ->groupBy('stocks.id');
 
@@ -32,7 +32,7 @@ class Stock extends Model
   public static function getByID($id) {
     return self::where('stocks.id', '=', $id)
                 ->join('users','stocks.id_user','=','users.id')
-                ->select('stocks.id', 'stocks.date', 'stocks.type', 'users.name')
+                ->select('stocks.id', 'stocks.date', 'stocks.type', 'stocks.notes', 'users.name')
                 ->first();
 
   }
