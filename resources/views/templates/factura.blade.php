@@ -147,6 +147,7 @@ footer hr {
                 <div><span>Fecha:</span> {{ $order['date'] }}</div>
                 <div><span>Cliente:</span> {{ $order['customer'] }}</div>
                 <div><span>Dirección</span> {{ $order['address'] }} - {{ strtoupper($order['neighborhood']) }}</div>
+                <div><span>Horario</span> {{ $order['time_visit'] }}</div>
                 <div><span>Zona:</span> {{ $order['zone'] }}</div>
                 <div><span>Tel:</span> {{ $order['cellphone'] }}</div>
                 <div><span>Vendido por:</span> {{ $order['name'] }}</div>

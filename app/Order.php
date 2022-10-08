@@ -29,7 +29,7 @@ class Order extends Model
                 ->select('orders.id', 'orders.date', 'orders.total', 'orders.discount', 'orders.notes', 
                           'orders.total_bruto', 'orders.delivery_cost', 'orders.payment_method',
                           'users.name', 'id_customer', 
-                          'customers.name as customer', 'customers.address', 'customers.cellphone', 
+                          'customers.name as customer', 'customers.address', 'customers.time_visit', 'customers.cellphone', 
                           'neighborhoods.name as neighborhood', 'zones.name as zone')
                 ->first();
 

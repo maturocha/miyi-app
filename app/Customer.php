@@ -2,7 +2,6 @@
 
 namespace App;
 
-use App\Traits\Models\Impersonator;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use DB;
@@ -16,7 +15,7 @@ class Customer extends Model
   protected $table = 'customers';
   protected $primaryKey = 'id';
   protected $fillable = [
-        'cuit', 'fullname', 'name', 'email', 'address', 'neighborhood', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type'
+        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'neighborhood', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type'
   ];
 
 
@@ -34,9 +33,7 @@ class Customer extends Model
   {
     return self::join('neighborhoods','customers.id_neighborhood','=','neighborhoods.id')
                 ->where('customers.id', '=', $id)
-                ->select('customers.id', 'customers.fullname', 'customers.name', 'customers.address',
-                'neighborhoods.name as neighborhood', 'customers.email', 'customers.cellphone', 'customers.type',
-                'customers.telephone' )
+                ->select('customers.*', 'neighborhoods.name as neighborhood')
                 ->first();
   }
 

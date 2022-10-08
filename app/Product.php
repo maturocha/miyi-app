@@ -187,8 +187,8 @@ class Product extends Model
     return self::join('order_details','products.id','=','order_details.id_product')
                 ->join('orders','order_details.id_order','=','orders.id')
                 ->where('products.id', '=', $this->id)
-                ->select('order_details.created_at as date', 'orders.id', DB::raw('SUM(order_details.quantity) as quantity'))
-                ->orderBy('order_details.created_at', 'DESC')
+                ->select('orders.created_at as date', 'orders.id', DB::raw('SUM(order_details.quantity) as quantity'))
+                ->orderBy('orders.created_at', 'DESC')
                 ->groupBy('order_details.id')
                 ->get();
 
@@ -246,7 +246,8 @@ class Product extends Model
 
     return self::join('order_details','products.id','=','order_details.id_product')
                 ->join('orders','order_details.id_order','=','orders.id')
-                ->select('products.name', DB::raw('ROUND(SUM(order_details.quantity * (order_details.price_unit - products.price_purchase) * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ), 2) as total'))
+                ->select('products.name', 
+                DB::raw('ROUND(SUM(order_details.quantity * IF(order_details.weight > 0, order_details.weight, 1) * (order_details.price_unit - products.price_purchase) * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ), 2) as total'))
                 ->whereBetween('orders.date', [$dates[0], $dates[1]])
                 ->orderByRaw('total DESC')
                 ->groupBy('products.id')
