@@ -1,0 +1,59 @@
+services:
+  app:
+    build: .
+    container_name: miyi-app
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    networks:
+      - laravel
+    healthcheck:
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  webserver:
+    image: nginx:alpine
+    container_name: miyi-web
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - app
+      - db
+    networks:
+      - laravel
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10.5
+    platform: linux/amd64
+    container_name: miyi-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-miyi-db}
+      MYSQL_USER: ${DB_USERNAME:-miyi}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-sports}
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - laravel
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  laravel:
+
+volumes:
+  dbdata:
