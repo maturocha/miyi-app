@@ -53,11 +53,12 @@ class SessionsController extends Controller
             return $this->respondWithToken($token);
         }
 
-        throw ValidationException::withMessages([
-            'password' => [trans('auth.failed')]
-        ]);
+        // throw ValidationException::withMessages([
+        //     'password' => [trans('auth.failed')]
+        // ]);
+        return response()->json(['message' => 'Error al iniciar sesión, usuario o contraseña incorrectos'], 401);
 
-        return response()->json(['error' => 'Unauthorized'], 401);
+        //return response()->json(['error' => 'Unauthorized'], 401);
     }
 
     /**

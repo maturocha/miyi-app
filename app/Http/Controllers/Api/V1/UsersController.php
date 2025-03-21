@@ -37,8 +37,7 @@ class UsersController extends Controller
             'email' => 'required|email|unique:users,email,NULL,id,deleted_at,NULL',
             'role_id' => 'required',
             'cel' => 'required',
-            'password' => 'required',
-            //'username' => 'nullable|unique:users,username,NULL,id,deleted_at,NULL'
+            'password' => 'required'
         ]);
 
 
@@ -146,22 +145,25 @@ class UsersController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $users = User::leftjoin('roles','roles.id','=','users.role_id')
-        ->orderBy(
-            $request->input('sortBy') ?? 'users.id',
-            $request->input('sortType') ?? 'ASC'
-        )->select('users.*', 'roles.name as rol');
-
-        if ($type = $request->input('type')) {
-            $this->filter($users, 'type', $type);
-        }
-
-        if ($name = $request->input('name')) {
-            $this->filter($users, 'name', $name);
-        }
-
-        if ($email = $request->input('email')) {
-            $this->filter($users, 'email', $email);
-        }
+            ->select('users.*', 'roles.name as rol')
+            ->when($request->has('search'), function ($query) use ($request) {
+                $search = $request->input('search');
+                return $query->where(function($q) use ($search) {
+                    $q->where('users.name', 'like', "%{$search}%")
+                      ->orWhere('users.email', 'like', "%{$search}%")
+                      ->orWhere('roles.name', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->has('role_id'), function ($query) use ($request) {
+                return $query->where('users.role_id', $request->input('role_id'));
+            })
+            ->when($request->has('type'), function ($query) use ($request) {
+                return $query->where('users.type', $request->input('type'));
+            })
+            ->orderBy(
+                $request->input('sortBy') ?? 'users.id',
+                $request->input('sortType') ?? 'ASC'
+            );
 
         return $users->paginate($request->input('perPage') ?? 10);
     }

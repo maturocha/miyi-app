@@ -31,7 +31,7 @@ class User extends Authenticatable implements JWTSubject, Uploader
      * @var array
      */
     protected $hidden = [
-        'password', 'remember_token',
+        'password', 'remember_token', 'deleted_at', 'last_signin'
     ];
 
 
