@@ -3,7 +3,6 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 use DB;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -15,8 +14,18 @@ class Customer extends Model
   protected $table = 'customers';
   protected $primaryKey = 'id';
   protected $fillable = [
-        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'neighborhood', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type'
+        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type'
   ];
+
+  public function neighborhood()
+  {
+    return $this->belongsTo(Neighborhood::class, 'id_neighborhood', 'id');
+  }
+
+  public function orders()
+  {
+    return $this->hasMany(Order::class, 'id_customer', 'id');
+  }
 
 
   public function getRecordTitle()
@@ -37,19 +46,7 @@ class Customer extends Model
                 ->first();
   }
 
-
-
-  public function getOrders()
-  {
-      return $this->where('customers.id', '=', $this->id)
-                  ->join('orders','orders.id_customer','=','customers.id')
-                  ->select('orders.date', 'orders.total', 'orders.id')
-                  ->orderBy('orders.date', 'DESC')
-                  ->get()
-                  ->take(10);
-  }
-
-  public function getProducts()
+  public function getProductRanking(int $top = 20)
   {
       return $this->where('customers.id', '=', $this->id)
                   ->join('orders','orders.id_customer','=','customers.id')
@@ -58,7 +55,7 @@ class Customer extends Model
                   ->select('products.name', DB::raw('ROUND(SUM(order_details.price_final * ((100 - order_details.discount)/100) * ((100 - orders.discount)/100) ) , 2) as total'))
                   ->orderByRaw('total DESC')
                   ->groupBy('products.id')
-                  ->take(20)->get();
+                  ->take($top)->get();
   }
 
   

@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
+use App\Http\Requests\StockFormRequest;
 
 class StockController extends Controller
 {
@@ -32,39 +33,53 @@ class StockController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function store(Request $request) : JsonResponse
+    public function store(StockFormRequest $request) : JsonResponse
     {
-
-        $values = [];
         $userid = \Auth::id();
-
-        $values['id_user'] = $userid;
-        $values['date'] =  Carbon::now()->timezone('America/Argentina/Buenos_Aires');;
-        $values['type'] =  $request->input('type', '');
-        $values['notes'] =  $request->input('notes', '');
+        $data = $request->validated();
+        $values = [
+            'id_user' => $userid,
+            'date' => Carbon::now()->timezone('America/Argentina/Buenos_Aires'),
+            'type' => $data['type'],
+            'notes' => $data['notes'] ?? '',
+        ];
         $stock = Stock::create($values);
-        $items = $request->input('items', '');
+        $items = $data['items'] ?? [];
 
-        $details = [];
         if ($stock) {
-            foreach ($items as $item) {
-                $aux['id_stock'] = $stock->id;
-                $aux['id_product'] = $item['id_product'];
-                $aux['quantity'] = $request->input('type') == 'in' ? $item['quantity'] : -abs($item['quantity']);
-                if ($request->input('type') == 'in') {
-                    $aux['id_provider'] = ($item['id_provider']) ? $item['id_provider'] : null;
-                    $aux['price_purchase'] = ($item['price_purchase']) ? $item['price_purchase'] : null;
-                }
-                $details[] = $aux;
-            }
+            $details = $this->buildStockDetails($items, $stock->id, $values['type']);
             Stock_details::insert($details);
             $response = response()->json($stock, 201);
         } else {
             $response = response()->json(['data' => 'Resource can not be created'], 500);
         }
-
         return $response;
-        
+    }
+
+    /**
+     * Construye los detalles del stock para insertar en la base de datos
+     *
+     * @param array $items
+     * @param int $stockId
+     * @param string $type
+     * @return array
+     */
+    private function buildStockDetails(array $items, int $stockId, string $type): array
+    {
+        $details = [];
+        foreach ($items as $item) {
+            $aux = [
+                'id_stock' => $stockId,
+                'id_product' => $item['id_product'],
+                'quantity' => $type === 'in' ? $item['quantity'] : -abs($item['quantity']),
+            ];
+            if ($type === 'in') {
+                $aux['id_provider'] = $item['id_provider'];
+                $aux['price_purchase'] = $item['price_purchase'];
+            }
+            $details[] = $aux;
+        }
+        return $details;
     }
 
     /**
@@ -156,13 +171,14 @@ class StockController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
+        $query = Stock::getAll();
+        $type = $request->input('type', null);
 
-        $stock = Stock::getAll()->orderBy(
-            'id',
-            'DESC'
-       );
+        if (!is_null($type)) {
+            $this->filter($query, 'type', ['=' => $type]);
+        }
 
-        return $stock->paginate($request->input('perPage') ?? 40);
+        return $query->orderBy('id', 'DESC')->paginate($request->input('perPage') ?? 40);
     }
 
     /**

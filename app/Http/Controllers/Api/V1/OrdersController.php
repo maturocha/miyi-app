@@ -11,31 +11,18 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 use PDF;
+use App\Http\Requests\OrderUpdateRequest;
+use App\Http\Resources\OrderResource;
 
 class OrdersController extends Controller
 {
-    /**
-     * List all resource.
-     *
-     * @param Illuminate\Http\Request $request
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
     public function index(Request $request) : JsonResponse
     {
         return response()->json($this->paginatedQuery($request));
     }
 
-    /**
-     * Store a new resource.
-     *
-     * @param Illuminate\Http\Request $request
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
     public function store(Request $request) : JsonResponse
     {
-
         $userid = \Auth::id();
         $today = Carbon::now()->timezone('America/Argentina/Buenos_Aires');
 
@@ -43,7 +30,6 @@ class OrdersController extends Controller
             'id_user' => $userid,
             'id_customer' => $request->id_customer,
             'date' => $today->format('Y-m-d H:i:s')
-            
         ]);
 
         if ($order) {
@@ -53,50 +39,36 @@ class OrdersController extends Controller
         }
 
         return $response;
-        
     }
 
-    /**
-     * Show a resource.
-     *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order $order
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
-    public function show($id) : JsonResponse
-
+    public function show(Request $request, $id) : JsonResponse
     {
-        $order = Order::getByID($id);
-        if ($order) {
-            $order['details'] = Order::getDetailsByID($id);
-            $response['data'] = $order;
-            $response = response()->json($response, 200);
-        } else {
-            $response = response()->json(['data' => 'Resource not found'], 404);
+        $order = Order::with([
+            'user:id,name',
+            'customer:id,name,address,time_visit,cellphone',
+            'customer.neighborhood:id,name',
+            'customer.neighborhood.zone:id,name',
+            'details.promotion:id,name,type'
+        ])->find($id);
+        
+        if (!$order) {
+            return response()->json(['data' => 'Resource not found'], 404);
         }
         
-        return $response;
-
+        return (new OrderResource($order))->response()->setStatusCode(200);
     }
 
-    /**
-     * Update a resource.
-     *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order $order
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
-    public function update(Request $request, Order $order) : JsonResponse
+    public function update(OrderUpdateRequest $request, Order $order) : JsonResponse
     {
-
-        $attributes = $request->all();
+        $validatedData = $request->validated();
         
-        $order->fill($attributes);
-        $order->update();
+        $order->update($validatedData);
 
-        return response()->json($order);
+        return response()->json([
+            'success' => true,
+            'message' => 'Orden actualizada exitosamente',
+            'data' => $order->fresh()
+        ]);
     }
 
     /**

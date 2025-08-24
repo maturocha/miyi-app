@@ -2,8 +2,8 @@
 
 namespace App;
 
-
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -16,6 +16,11 @@ class Neighborhood extends Authenticatable
   protected $fillable = [
       'name' , 'id_zone'
   ];
+
+  public function zone(): BelongsTo
+  {
+    return $this->belongsTo(Zone::class, 'id_zone', 'id');
+  }
 
   public function getRecordTitle()
   {

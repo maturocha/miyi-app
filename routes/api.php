@@ -83,6 +83,8 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::resource('products', 'ProductsController');
 
+                Route::resource('promotions', 'PromotionController');
+
                 Route::resource('stock', 'StockController');
 
                 Route::get('raises',  'SummaryController@raises');

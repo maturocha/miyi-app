@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
+use App\Http\Resources\CustomerResource;
 
 class CustomersController extends Controller
 {
@@ -51,29 +52,16 @@ class CustomersController extends Controller
     /**
      * Show a resource.
      *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Customer $customer
      *
      * @return Illuminate\Http\JsonResponse
      */
-
-     
-    public function show($id) : JsonResponse
-
+    public function show(Customer $customer) : JsonResponse
     {
-
-        $customer = Customer::getByID($id);
-        if ($customer) {
-            $customer['details'] = $customer->getOrders();
-            $customer['products'] = $customer->getProducts();
-            $response['data'] = $customer;
-            $response = response()->json($response, 200);
-        } else {
-            $response = response()->json(['data' => 'Resource not found'], 404);
-        }
-        
-        return $response;
-
+        return response()->json([
+            'success' => true,
+            'data' => new CustomerResource($customer)
+        ]);
     }
 
     /**
