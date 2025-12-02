@@ -22,9 +22,12 @@ class OrderResource extends JsonResource
                 'user' => $this->whenLoaded('user', function () {
                     return $this->user->name;
                 }),
-                'id_customer' => $this->id_customer,
                 'customer' => $this->whenLoaded('customer', function () {
-                    return $this->customer->name;
+                    return $this->customer ? [
+                    'id' => $this->customer->id,
+                    'name' => $this->customer->name,
+                    'type' => $this->customer->type,
+                    ] : null;
                 }),
                 'details' => OrderDetailsResource::collection($this->whenLoaded('details')),
             ]

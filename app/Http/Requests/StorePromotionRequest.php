@@ -61,33 +61,27 @@ class StorePromotionRequest extends FormRequest
     public function rules()
     {
         $rules = [
-            'name' => 'required|string|max:120',
-            'type' => 'required|in:BUY_X_GET_Y,NTH_PERCENT,LINE_PERCENT',
-            'params' => 'required|array',
-            'starts_at' => 'required|date',
+            'name' => 'sometimes|required|string|max:120',
+            'type' => 'sometimes|required|in:BUY_X_GET_Y,NTH_PERCENT,LINE_PERCENT,BUY_X_TOTAL_DISCOUNT',
+            'params' => 'sometimes|required|array',
+            'starts_at' => 'sometimes|required|date',
             'ends_at' => 'nullable|date|after_or_equal:starts_at',
             'is_active' => 'sometimes|boolean',
             'priority' => 'sometimes|integer',
             'exclusive' => 'sometimes|boolean',
-            'product_ids' => 'required|array',
+            'product_ids' => 'nullable|array',
             'product_ids.*' => 'integer|exists:products,id',
         ];
 
-        // Reglas específicas según el tipo de promoción
-        if ($this->input('type') === 'BUY_X_GET_Y') {
-            $rules['params.x'] = 'required|integer|min:1';
-            $rules['params.y'] = 'required|integer|min:1';
+        // Conditional rules for params based on type
+        if ($this->input('type') === 'BUY_X_GET_Y') { $rules['params.x'] = 'required|integer|min:1'; $rules['params.y'] = 'required|integer|min:1'; }
+        if ($this->input('type') === 'NTH_PERCENT') { $rules['params.n'] = 'required|integer|min:2'; $rules['params.percent'] = 'required|numeric|min:0|max:100'; }
+        if ($this->input('type') === 'LINE_PERCENT') { $rules['params.percent'] = 'required|numeric|min:0|max:100'; }
+        if ($this->input('type') === 'BUY_X_TOTAL_DISCOUNT') { 
+            $rules['params.discounts'] = 'required|array|min:1';
+            $rules['params.discounts.*.x'] = 'required|integer|min:1';
+            $rules['params.discounts.*.percent'] = 'required|numeric|min:0|max:100';
         }
-
-        if ($this->input('type') === 'NTH_PERCENT') {
-            $rules['params.n'] = 'required|integer|min:2';
-            $rules['params.percent'] = 'required|numeric|min:0|max:100';
-        }
-
-        if ($this->input('type') === 'LINE_PERCENT') {
-            $rules['params.percent'] = 'required|numeric|min:0|max:100';
-        }
-
         return $rules;
     }
 }

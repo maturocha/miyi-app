@@ -3,12 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Order_details;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Carbon\Carbon;
 use App\Http\Requests\OrderDetailsStoreRequest;
 use App\Http\Resources\OrderDetailsResource;
 
@@ -72,7 +70,7 @@ class OrdersDetailsController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Order_details $orderDetail) : JsonResponse
+    public function update(Request $request, Order_details $detail) : JsonResponse
     {
         $attributes = [
             'price_final' => $request->input('price_final'),
@@ -80,30 +78,40 @@ class OrdersDetailsController extends Controller
             'promotion_id' => $request->input('promotion_id'),
         ];
          
-        $orderDetail->fill($attributes);
-        $orderDetail->update();
+        $detail->fill($attributes);
+        $detail->update();
 
         // Cargar relaciones si se solicita
-        if ($request->has('with_promotion') && $request->with_promotion == '1') {
-            $orderDetail->load('promotion:id,name,type');
+        if ($detail->has('with_promotion') && $request->with_promotion == '1') {
+            $detail->load('promotion:id,name,type');
         }
 
-        return response()->json(new OrderDetailsResource($orderDetail));
+        return response()->json(new OrderDetailsResource($detail));
     }
 
     /**
      * Destroy a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\Order_details $orderDetail
+     * @param App\Order_details $detail
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, Order_details $orderDetail) : JsonResponse
+    public function destroy(Request $request, Order_details $detail) : JsonResponse
     {
-        $orderDetail->delete();
-        
-        return response()->json($this->paginatedQuery($request));
+        try {
+            $detail->delete();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Detalle del pedido eliminado exitosamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar el detalle del pedido: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

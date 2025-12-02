@@ -174,18 +174,18 @@ class OrdersController extends Controller
         }
     }
 
-    public function viewVoucher($id) {
+    public function print($id) {
         $data = [];
 
         $order = Order::getByID($id); 
         $order['date'] = Carbon::parse($order['date'])->format('d/m/Y');
         $data['order'] = $order;
-        $today = Carbon::now()->timezone('America/Argentina/Buenos_Aires')->toDateString();
         $data['details'] = Order::getDetailsByID($id);
         $pdf = PDF::loadView('templates.factura', $data);
-        return $pdf->stream('comprobante_'.$order['customer'].'_'.$order['date'].'.pdf');        
-        //return $pdf->download('afip_'.$today.'.pdf');
-        //return view('templates.factura', $data);
-
+        $filename = 'pedido_'.$order['customer'].'_'.$order['date'].'.pdf';
+        
+        return response($pdf->output(), 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
     }
 }

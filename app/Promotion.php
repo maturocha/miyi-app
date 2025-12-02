@@ -10,6 +10,7 @@ class Promotion extends Model
     const BUY_X_GET_Y = 'BUY_X_GET_Y';
     const NTH_PERCENT = 'NTH_PERCENT';
     const LINE_PERCENT = 'LINE_PERCENT';
+    const BUY_X_TOTAL_DISCOUNT = 'BUY_X_TOTAL_DISCOUNT';
 
     protected $fillable = [
         'name',
