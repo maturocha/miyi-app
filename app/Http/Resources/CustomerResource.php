@@ -29,13 +29,16 @@ class CustomerResource extends JsonResource
             'type' => $this->type,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'orders' => $this->resource->orders->map(function ($order) {
-                return [
-                    'id' => $order->id,
-                    'date' => $order->date,
-                    'total' => $order->total,
-                ];
-            }),
+            'orders' => $this->resource->orders()
+                ->orderByDesc('date')
+                ->get()
+                ->map(function ($order) {
+                    return [
+                        'id' => $order->id,
+                        'date' => $order->date,
+                        'total' => $order->total,
+                    ];
+                }),
             'stats' => [
                 'products_ranking' => $this->when($this->resource->getProductRanking(), function () {
                     return $this->resource->getProductRanking();
