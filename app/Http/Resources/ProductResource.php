@@ -33,7 +33,7 @@ class ProductResource extends JsonResource
             'type_product'    => $this->type_product,
             'created_at'      => $this->created_at,
             'updated_at'      => $this->updated_at,
-            'image_path'      => $this->getImages()->path,
+            'image_path'      => ($image = $this->getImages()) ? $image->path : null,
             'active_promotions' => $this->activePromotions->map(function ($promotion) {
                 return [
                     'id' => $promotion->id,
