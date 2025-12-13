@@ -19,8 +19,7 @@ class OrderDetailsResource extends JsonResource
             'discount' => $this->discount,
             'price_final' => $this->price_final,
             'weight' => $this->weight,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'type_product' => $this->product->type_product,
             'promotion' => $this->promotion ?
                 [
                     'id' => $this->promotion->id,
@@ -28,6 +27,8 @@ class OrderDetailsResource extends JsonResource
                     'type' => $this->promotion->type
                 ]
             : null,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 }

@@ -186,27 +186,19 @@ class OrderDetailsStoreRequest extends FormRequest
         $n = $params['n'] ?? 2;
         $percent = $params['percent'] ?? 0;
         $quantity = $data['quantity'];
-        $basePrice = $data['price_unit'];
         
         if ($quantity >= $n) {
             // Calcular cuántos N-ésimos items hay
             $nthItems = floor($quantity / $n);
             
-            // Calcular el descuento por N-ésimo item
-            $discountPerNth = ($basePrice * $percent) / 100;
+            // El descuento se aplica solo a los N-ésimos items
+            // Descuento promedio = (cantidad_con_descuento / cantidad_total) * porcentaje_descuento
+            $discountPercentage = ($nthItems / $quantity) * $percent;
             
-            // Calcular el descuento total
-            $totalDiscountAmount = $nthItems * $discountPerNth;
-            
-            // Calcular el precio final
-            $subtotal = $quantity * $basePrice;
-            $finalPrice = $subtotal - $totalDiscountAmount;
-            
-            $data['price_final'] = $finalPrice;
-            $data['discount'] = 0; // El frontend calcula el precio final
+            // Redondear a 2 decimales
+            $data['discount'] = round($discountPercentage, 2);
         } else {
-            // No hay suficientes items, aplicar cálculo normal
-            $data['price_final'] = Order_details::calculateFinalPrice($quantity, $basePrice, 0);
+            // No hay suficientes items, no hay descuento
             $data['discount'] = 0;
         }
         
@@ -215,6 +207,8 @@ class OrderDetailsStoreRequest extends FormRequest
 
     /**
      * Aplicar promoción de compra X obtén Y
+     * Ejemplo: "lleva 8 paga 7" significa x=8 (llevas 8), y=7 (pagas 7)
+     * Los items gratis son: x - y = 8 - 7 = 1
      *
      * @param array $data
      * @param array $params
@@ -225,23 +219,30 @@ class OrderDetailsStoreRequest extends FormRequest
         $x = $params['x'] ?? 1;
         $y = $params['y'] ?? 1;
         $quantity = $data['quantity'];
-        $basePrice = $data['price_unit'];
         
-        // Calcular cuántos grupos completos de X+Y se pueden formar
-        $groups = floor($quantity / ($x + $y));
+        // Calcular cuántos grupos completos de X unidades se pueden formar
+        $groups = floor($quantity / $x);
         
-        // Calcular cuántos items se pagan
-        $paidItems = $groups * $x;
+        // Si no hay grupos completos, no hay descuento
+        if ($groups == 0) {
+            $data['discount'] = 0;
+            return $data;
+        }
         
-        // Calcular items restantes que se pagan al precio completo
-        $remainingItems = $quantity - ($groups * ($x + $y));
-        $paidItems += $remainingItems;
+        // Calcular cuántos items son gratis por grupo: x - y
+        // Ejemplo: lleva 8 paga 7 -> gratis = 8 - 7 = 1
+        $freeItemsPerGroup = $x - $y;
         
-        // Calcular el precio final
-        $finalPrice = $paidItems * $basePrice;
+        // Calcular cuántos items son gratis en total (solo en grupos completos)
+        $freeItems = $groups * $freeItemsPerGroup;
         
-        $data['price_final'] = $finalPrice;
-        $data['discount'] = 0; // El frontend calcula el precio final
+        // Calcular el descuento porcentual: (items_gratis / cantidad_total) * 100
+        // Ejemplo: lleva 8 paga 7, quantity=8 -> (1/8) * 100 = 12.5%
+        // Ejemplo: lleva 8 paga 7, quantity=9 -> (1/9) * 100 = 11.11% (solo 1 grupo completo)
+        $discountPercentage = ($freeItems / $quantity) * 100;
+        
+        // Redondear a 2 decimales
+        $data['discount'] = round($discountPercentage, 2);
         
         return $data;
     }
