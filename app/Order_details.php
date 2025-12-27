@@ -10,7 +10,11 @@ class Order_details extends Model
   protected $table = 'order_details';
   protected $primaryKey = 'id';
   protected $fillable = [
-      'id_order', 'id_product', 'promotion_id', 'quantity', 'discount', 'price_unit', 'price_final', 'weight'
+      'id_order', 'id_product', 'promotion_id', 'promotion_snapshot', 'quantity', 'discount', 'price_unit', 'price_final', 'weight'
+  ];
+
+  protected $casts = [
+      'promotion_snapshot' => 'array',
   ];
 
   public function getRecordTitle()

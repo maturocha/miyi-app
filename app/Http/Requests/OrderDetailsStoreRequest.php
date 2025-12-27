@@ -46,9 +46,12 @@ class OrderDetailsStoreRequest extends FormRequest
             $promotion = Promotion::find($value);
             $productId = $this->input('id_product');
             
-            if (!$promotion || !$promotion->is_active || 
-                $promotion->starts_at > now()->toDateString() || 
-                ($promotion->ends_at && $promotion->ends_at < now()->toDateString())) {
+            if (
+                !$promotion ||
+                !$promotion->is_active ||
+                ($promotion->starts_at && $promotion->starts_at->toDateString() > now()->toDateString()) ||
+                ($promotion->ends_at && $promotion->ends_at->toDateString() < now()->toDateString())
+            ) {
                 return false;
             }
             
@@ -105,6 +108,14 @@ class OrderDetailsStoreRequest extends FormRequest
             $product = Product::find($validated['id_product']);
             
             if ($promotion && $product) {
+                // Guardar snapshot completo de la promoción como JSON
+                $validated['promotion_snapshot'] = [
+                    'id' => $promotion->id,
+                    'name' => $promotion->name,
+                    'type' => $promotion->type,
+                    'params' => $promotion->params,
+                ];
+                
                 $validated = $this->applyPromotion($validated, $promotion, $product);
             }
         }

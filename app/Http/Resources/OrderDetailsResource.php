@@ -20,13 +20,13 @@ class OrderDetailsResource extends JsonResource
             'price_final' => $this->price_final,
             'weight' => $this->weight,
             'type_product' => $this->product->type_product,
-            'promotion' => $this->promotion ?
+            'promotion' => $this->promotion_snapshot ? array_merge(
+                $this->promotion_snapshot,
                 [
-                    'id' => $this->promotion->id,
-                    'name' => $this->promotion->name,
-                    'type' => $this->promotion->type
+                    'snapshot' => !$this->promotion, // true si la promoción fue borrada
+                    'active' => (bool) $this->promotion // false si fue borrada
                 ]
-            : null,
+            ) : null,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

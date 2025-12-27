@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Order;
 use App\Order_details;
+use App\Promotion;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -81,6 +82,22 @@ class OrdersDetailsController extends Controller
             'weight' => $request->input('weight'),
             'promotion_id' => $request->input('promotion_id'),
         ];
+
+        // Si se actualiza la promoción, guardar el snapshot completo como JSON
+        if ($request->has('promotion_id') && $request->input('promotion_id')) {
+            $promotion = Promotion::find($request->input('promotion_id'));
+            if ($promotion) {
+                $attributes['promotion_snapshot'] = [
+                    'id' => $promotion->id,
+                    'name' => $promotion->name,
+                    'type' => $promotion->type,
+                    'params' => $promotion->params,
+                ];
+            }
+        } elseif ($request->has('promotion_id') && $request->input('promotion_id') === null) {
+            // Si se elimina la promoción, mantener el snapshot existente (no borrarlo)
+            // Solo limpiar promotion_id
+        }
          
         $detail->fill($attributes);
         $detail->update();
