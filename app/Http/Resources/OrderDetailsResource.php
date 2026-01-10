@@ -18,7 +18,7 @@ class OrderDetailsResource extends JsonResource
             'price_unit' => $this->price_unit,
             'discount' => $this->discount,
             'price_final' => $this->price_final,
-            'weight' => $this->weight,
+            'weight' => $this->weight !== null ? (float) $this->weight : null,
             'type_product' => $this->product->type_product,
             'promotion' => $this->promotion_snapshot ? array_merge(
                 $this->promotion_snapshot,

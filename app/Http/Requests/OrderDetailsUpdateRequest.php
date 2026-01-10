@@ -7,7 +7,7 @@ use App\Order_details;
 use App\Promotion;
 use App\Product;
 
-class OrderDetailsStoreRequest extends FormRequest
+class OrderDetailsUpdateRequest extends FormRequest
 {
     public function authorize()
     {
@@ -17,12 +17,11 @@ class OrderDetailsStoreRequest extends FormRequest
     public function rules()
     {
         $rules = [
-            'id_order' => 'required|integer|exists:orders,id',
-            'id_product' => 'required|integer|exists:products,id',
+            'id_product' => 'sometimes|required|integer|exists:products,id',
             'promotion_id' => 'nullable|integer|exists:promotions,id',
-            'quantity' => 'required|numeric|min:0.01',
+            'quantity' => 'sometimes|required|numeric|min:0.01',
             'discount' => 'nullable|numeric|min:0|max:100',
-            'price_unit' => 'required|numeric|min:0.01',
+            'price_unit' => 'sometimes|required|numeric|min:0.01',
             'weight' => 'nullable|numeric|min:0.01|regex:/^\d+(\.\d{1,2})?$/',
         ];
 
@@ -46,13 +45,28 @@ class OrderDetailsStoreRequest extends FormRequest
         // Validar weight cuando type_product = 'w'
         $validator->after(function ($validator) {
             $productId = $this->input('id_product');
-            $product = Product::find($productId);
             
-            if ($product && $product->type_product === 'w') {
-                $weight = $this->input('weight');
+            // Si no se envía id_product, obtenerlo del detalle existente
+            if (!$productId && $this->route('detail')) {
+                $detail = $this->route('detail');
+                $productId = $detail->id_product;
+            }
+            
+            if ($productId) {
+                $product = Product::find($productId);
                 
-                if (!$weight || $weight <= 0) {
-                    $validator->errors()->add('weight', 'El campo weight es requerido y debe ser mayor a 0 para productos tipo peso.');
+                if ($product && $product->type_product === 'w') {
+                    $weight = $this->input('weight');
+                    
+                    // Si no se envía weight, obtenerlo del detalle existente
+                    if (!$weight && $this->route('detail')) {
+                        $detail = $this->route('detail');
+                        $weight = $detail->weight;
+                    }
+                    
+                    if (!$weight || $weight <= 0) {
+                        $validator->errors()->add('weight', 'El campo weight es requerido y debe ser mayor a 0 para productos tipo peso.');
+                    }
                 }
             }
         });
@@ -60,6 +74,12 @@ class OrderDetailsStoreRequest extends FormRequest
         $validator->addExtension('promotion_valid_for_product', function ($attribute, $value, $parameters, $validator) {
             $promotion = Promotion::find($value);
             $productId = $this->input('id_product');
+            
+            // Si no se envía id_product, obtenerlo del detalle existente
+            if (!$productId && $this->route('detail')) {
+                $detail = $this->route('detail');
+                $productId = $detail->id_product;
+            }
             
             if (
                 !$promotion ||
@@ -118,6 +138,29 @@ class OrderDetailsStoreRequest extends FormRequest
     {
         $validated = parent::validated($key, $default);
         
+        // Obtener el detalle existente para valores por defecto
+        $detail = $this->route('detail');
+        
+        // Si no se envía id_product, usar el del detalle existente
+        if (!isset($validated['id_product']) && $detail) {
+            $validated['id_product'] = $detail->id_product;
+        }
+        
+        // Si no se envía quantity, usar el del detalle existente
+        if (!isset($validated['quantity']) && $detail) {
+            $validated['quantity'] = $detail->quantity;
+        }
+        
+        // Si no se envía price_unit, usar el del detalle existente
+        if (!isset($validated['price_unit']) && $detail) {
+            $validated['price_unit'] = $detail->price_unit;
+        }
+        
+        // Si no se envía weight y el detalle tiene weight, usar el del detalle existente
+        if (!isset($validated['weight']) && $detail && $detail->weight) {
+            $validated['weight'] = $detail->weight;
+        }
+        
         // Obtener el producto para verificar type_product
         $product = Product::find($validated['id_product']);
         $isWeightProduct = $product && $product->type_product === 'w';
@@ -141,10 +184,14 @@ class OrderDetailsStoreRequest extends FormRequest
                 
                 $validated = $this->applyPromotion($validated, $promotion, $product, $calculationQuantity);
             }
+        } elseif ($this->has('promotion_id') && $this->input('promotion_id') === null) {
+            // Si se elimina la promoción, mantener el snapshot existente (no borrarlo)
+            // Solo limpiar promotion_id
+            $validated['promotion_id'] = null;
         }
         
-        // Solo calcular price_final si no fue establecido por una promoción
-        if (!isset($validated['price_final'])) {
+        // Solo calcular price_final si no fue establecido por una promoción y no se envía explícitamente
+        if (!isset($validated['price_final']) && !$this->has('price_final')) {
             $validated['price_final'] = Order_details::calculateFinalPrice($calculationQuantity, $validated['price_unit'], $validated['discount']);
         }
         
@@ -306,15 +353,35 @@ class OrderDetailsStoreRequest extends FormRequest
      */
     private function calculateExpectedDiscount(Promotion $promotion): float
     {
-        // Obtener el producto para verificar type_product
         $productId = $this->input('id_product');
+        
+        // Si no se envía id_product, obtenerlo del detalle existente
+        if (!$productId && $this->route('detail')) {
+            $detail = $this->route('detail');
+            $productId = $detail->id_product;
+        }
+        
         $product = Product::find($productId);
         $isWeightProduct = $product && $product->type_product === 'w';
         
         // Determinar la cantidad a usar para cálculos (weight si es producto por peso, quantity si no)
-        $calculationQuantity = $isWeightProduct && $this->input('weight') && $this->input('weight') > 0
-            ? $this->input('weight', 0)
-            : $this->input('quantity', 0);
+        $weight = $this->input('weight');
+        $quantity = $this->input('quantity');
+        
+        // Si no se envía weight o quantity, obtenerlos del detalle existente
+        if ($this->route('detail')) {
+            $detail = $this->route('detail');
+            if (!$weight && $detail->weight) {
+                $weight = $detail->weight;
+            }
+            if (!$quantity) {
+                $quantity = $detail->quantity;
+            }
+        }
+        
+        $calculationQuantity = $isWeightProduct && $weight && $weight > 0
+            ? $weight
+            : ($quantity ?? 0);
         
         switch ($promotion->type) {
             case Promotion::LINE_PERCENT:
@@ -349,3 +416,4 @@ class OrderDetailsStoreRequest extends FormRequest
         }
     }
 }
+

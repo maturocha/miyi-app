@@ -27,7 +27,16 @@ class ProductsController extends Controller
      */
     public function index(Request $request) : JsonResponse
     {
-        return response()->json($this->paginatedQuery($request));
+        $paginator = $this->paginatedQuery($request);
+        
+        // Aplicar Resource de forma optimizada
+        $paginator->setCollection(
+            $paginator->getCollection()->map(function ($product) use ($request) {
+                return new ProductResource($product);
+            })
+        );
+    
+    return response()->json($paginator);
     }
 
         /**
@@ -112,13 +121,20 @@ class ProductsController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function restore(Request $request, $id)
+    public function restore(Request $request, $id) : JsonResponse
     {
         $product = Product::withTrashed()->where('id', $id)->first();
         $product->deleted_at = null;
         $product->update();
 
-        return response()->json($this->paginatedQuery($request));
+        $paginator = $this->paginatedQuery($request);
+        
+        // Aplicar ProductResource a cada item manteniendo la estructura de paginación
+        $paginator->getCollection()->transform(function ($product) use ($request) {
+            return (new ProductResource($product))->toArray($request);
+        });
+        
+        return response()->json($paginator);
     }
 
 
@@ -143,18 +159,21 @@ class ProductsController extends Controller
                         ->orWhere('name', 'like', "%$search%");
                    });
         })
-        ->when($request->has('stock'), function ($query) use ($request) {
-            
-            return $query->where(function($queryContainer){
-                $queryContainer->where(function($q){
+        ->when($request->has('in_stock'), function ($query) use ($request) {
+            $in_stock = $request->input('in_stock') == '1';
+
+            if ($in_stock) {
+                return $query->where(function($q){
                     $q->where('stock','>',0)
                         ->where('own_product','=',1);
                     })
                     ->orwhere(function($q){
                         $q->where('stock','<>',0)
                         ->where('own_product','=', 0);
-                        });    
-                });
+                    });    
+            } else {    
+                return $query->where('stock','=',0);
+            }
         })
         ->when($request->has('id_category'), function ($query) use ($request) {
             $category = $request->input('id_category');

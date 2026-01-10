@@ -41,7 +41,8 @@ class Stock extends Model
     return self::where('stocks.id', '=', $id)
                 ->join('stock_details','stock_details.id_stock','=','stocks.id')
                 ->join('products','stock_details.id_product','=','products.id')
-                ->select('products.name as product', 'stock_details.quantity','stock_details.price_purchase', 'stock_details.bulto_reference', 'stock_details.due_date' )
+                ->join('providers','stock_details.id_provider','=','providers.id')
+                ->select('products.name as product', 'stock_details.quantity','stock_details.price_purchase', 'stock_details.bulto_reference', 'stock_details.due_date', 'providers.fullname as provider')
                 ->get();
 
   }

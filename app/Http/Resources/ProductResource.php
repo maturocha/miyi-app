@@ -15,6 +15,12 @@ class ProductResource extends JsonResource
         $isContable = $user && $user->hasRole('administracion');
         $isAdminOrContable = $isAdmin || $isContable;
 
+        // Detectar si es index (listado) o show (vista individual)
+        $route = $request->route();
+        $routeName = $route ? $route->getName() : '';
+        $isShow = $routeName && (str_contains($routeName, 'show') || $route->hasParameter('product'));
+        $isIndex = $routeName && (str_contains($routeName, 'index') || (!$isShow && $routeName !== ''));
+
         $data = [
             'id'                => $this->id,
             'barcode'           => $this->barcode,
@@ -26,14 +32,14 @@ class ProductResource extends JsonResource
             'category'          => $this->category->name,
             'id_category'       => $this->id_category,
             'code_miyi'         => $this->code_miyi,
-            'price_min'      => $this->price_min,
-            'price_unit'     => $this->price_unit,
-            'stock'           => $this->stock,
-            'bulto'           => $this->bulto,
-            'type_product'    => $this->type_product,
-            'created_at'      => $this->created_at,
-            'updated_at'      => $this->updated_at,
-            'image_path'      => ($image = $this->getImages()) ? $image->path : null,
+            'price_min'         => $this->price_min,
+            'price_unit'        => $this->price_unit,
+            'stock'             => $this->stock,
+            'bulto'             => $this->bulto,
+            'type_product'      => $this->type_product,
+            'created_at'        => $this->created_at,
+            'updated_at'        => $this->updated_at,
+            'image_path'        => ($image = $this->getImages()) ? $image->path : null,
             'active_promotions' => $this->activePromotions->map(function ($promotion) {
                 return [
                     'id' => $promotion->id,
@@ -49,18 +55,22 @@ class ProductResource extends JsonResource
                 'price_purchase' => $this->price_purchase,
                 'percentage_may' => $this->percentage_may,
                 'percentage_min' => $this->percentage_min,
-                'show_store'      => (bool) $this->show_store,
+                'show_store'     => (bool) $this->show_store,
             ]);
         }
 
-        if ($isAdminOrContable) {
+        // Información adicional solo para vista individual (show)
+        if ($isShow && $isAdminOrContable) {
             $data = array_merge($data, [
-                
                 'history_prices'  => $this->historyPrices(),
                 'history_stock'   => $this->stockMoving(),
                 'history_sales'   => $this->orderMoving(),
                 'min_stock'       => $this->min_stock
             ]);
+        }
+        // Para index, solo agregar min_stock si es admin o contable
+        elseif ($isIndex && $isAdminOrContable) {
+            $data['min_stock'] = $this->min_stock;
         }
 
         return $data;

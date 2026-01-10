@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Http\Requests\OrderDetailsStoreRequest;
+use App\Http\Requests\OrderDetailsUpdateRequest;
 use App\Http\Resources\OrderDetailsResource;
 
 class OrdersDetailsController extends Controller
@@ -70,36 +71,17 @@ class OrdersDetailsController extends Controller
     /**
      * Update a resource.
      *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order_details $orderDetail
+     * @param App\Http\Requests\OrderDetailsUpdateRequest $request
+     * @param App\Order_details $detail
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Order_details $detail) : JsonResponse
+    public function update(OrderDetailsUpdateRequest $request, Order_details $detail) : JsonResponse
     {
-        $attributes = [
-            'price_final' => $request->input('price_final'),
-            'weight' => $request->input('weight'),
-            'promotion_id' => $request->input('promotion_id'),
-        ];
-
-        // Si se actualiza la promoción, guardar el snapshot completo como JSON
-        if ($request->has('promotion_id') && $request->input('promotion_id')) {
-            $promotion = Promotion::find($request->input('promotion_id'));
-            if ($promotion) {
-                $attributes['promotion_snapshot'] = [
-                    'id' => $promotion->id,
-                    'name' => $promotion->name,
-                    'type' => $promotion->type,
-                    'params' => $promotion->params,
-                ];
-            }
-        } elseif ($request->has('promotion_id') && $request->input('promotion_id') === null) {
-            // Si se elimina la promoción, mantener el snapshot existente (no borrarlo)
-            // Solo limpiar promotion_id
-        }
-         
-        $detail->fill($attributes);
+        $data = $request->validated();
+        
+        // Actualizar el detalle con los datos validados
+        $detail->fill($data);
         $detail->update();
 
         // Actualizar el total de la orden

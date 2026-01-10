@@ -104,7 +104,20 @@ class SessionsController extends Controller
 
         $this->saveAuthToken($authToken, $user);
 
-        return response()->json(_token_payload($authToken));
+        // Cargar la relación del rol
+        $user->load('role');
+
+        $payload = _token_payload($authToken);
+
+        // Agregar información del usuario y rol (solo id, name, email y role key)
+        $payload['user'] = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role ? $user->role->key : null,
+        ];
+
+        return response()->json($payload);
     }
 
     /**
@@ -130,7 +143,14 @@ class SessionsController extends Controller
      */
     public function user() : JsonResponse
     {
-        return response()->json($this->guard()->user());
+        $user = $this->guard()->user();
+        
+        // Cargar la relación del rol
+        if ($user) {
+            $user->load('role');
+        }
+        
+        return response()->json($user);
     }
 
     /**
