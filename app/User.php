@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Hash;
+use Illuminate\Support\Facades\Hash;
 
 class User extends Authenticatable implements JWTSubject, Uploader
 {
@@ -21,9 +21,13 @@ class User extends Authenticatable implements JWTSubject, Uploader
      *
      * @var array
      */
-    protected $guarded = [];
-
-    protected $fillable = ['name', 'email', 'cel', 'role_id', 'password'];
+    protected $fillable = [
+        'name',
+        'email', 
+        'password', 
+        'cel', 
+        'role_id'
+    ];
 
     /**
      * The attributes that should be hidden for arrays.
@@ -31,9 +35,22 @@ class User extends Authenticatable implements JWTSubject, Uploader
      * @var array
      */
     protected $hidden = [
-        'password', 'remember_token', 'deleted_at', 'last_signin'
+        'password', 
+        'remember_token', 
+        'deleted_at', 
+        'last_signin',
+        'auth_token'
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'last_signin' => 'datetime',
+    ];
 
     /**
      * Get the directory for uploads.
@@ -52,20 +69,19 @@ class User extends Authenticatable implements JWTSubject, Uploader
      */
     public function getUploadAttributes() : array
     {
-        return $this->uploadAttributes;
+        return $this->uploadAttributes ?? [];
     }
 
-      
     /**
      * Hash password
      * @param $input
      */
     public function setPasswordAttribute($input)
     {
-        if ($input)
-            $this->attributes['password'] = app('hash')->needsRehash($input) ? Hash::make($input) : $input;
+        if ($input) {
+            $this->attributes['password'] = Hash::needsRehash($input) ? Hash::make($input) : $input;
+        }
     }
-    
 
     /**
      * Set to null if empty
@@ -76,8 +92,21 @@ class User extends Authenticatable implements JWTSubject, Uploader
         $this->attributes['role_id'] = $input ? $input : null;
     }
     
+    /**
+     * Get the role that owns the user.
+     */
     public function role()
     {
         return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Check if user has a specific role
+     * @param string $role
+     * @return bool
+     */
+    public function hasRole($role)
+    {
+        return $this->role && $this->role->key === $role;
     }
 }

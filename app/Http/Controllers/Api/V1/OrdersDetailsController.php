@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Order;
 use App\Order_details;
-use Illuminate\Support\Facades\Auth;
+use App\Promotion;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Carbon\Carbon;
+use App\Http\Requests\OrderDetailsStoreRequest;
+use App\Http\Requests\OrderDetailsUpdateRequest;
+use App\Http\Resources\OrderDetailsResource;
 
 class OrdersDetailsController extends Controller
 {
@@ -25,153 +28,169 @@ class OrdersDetailsController extends Controller
     }
 
     /**
-     * Store a new resource.
+     * Store a newly created resource in storage.
      *
-     * @param Illuminate\Http\Request $request
-     *
+     * @param App\Http\Requests\OrderDetailsStoreRequest $request
      * @return Illuminate\Http\JsonResponse
      */
-    public function store(Request $request) : JsonResponse
+    public function store(OrderDetailsStoreRequest $request) : JsonResponse
     {
-
-        $order = Order_details::create([
-            'id_order' => $request->input('id_order'),
-            'id_product' => $request->input('id_product'), 
-            'quantity' => $request->input('quantity'), 
-            'discount' => ($request->input('discount', '')) ? $request->input('discount', '') : 0, 
-            'price_unit' => $request->input('price_unit'), 
-            'price_final' => $request->input('price_final'),
-        ]);
-
-        return response()->json($order, 201);
+        $data = $request->validated();
         
+        $orderDetail = Order_details::create($data);
+
+        // Actualizar el total de la orden
+        $this->updateOrderTotal($orderDetail->id_order);
+
+        // Cargar relaciones si se solicita
+        if ($request->has('with_promotion') && $request->with_promotion == '1') {
+            $orderDetail->load('promotion:id,name,type');
+        }
+
+        return response()->json(new OrderDetailsResource($orderDetail), 201);
     }
 
     /**
      * Show a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Order_details $orderDetail
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function show($id) : JsonResponse
-
+    public function show(Request $request, Order_details $orderDetail) : JsonResponse
     {
-
-        $order = Order::getByID($id);
-        if ($order) {
-            $order['details'] = Order::getDetailsByID($id);
-            $response['data'] = $order;
-            $response = response()->json($response, 200);
-        } else {
-            $response = response()->json(['data' => 'Resource not found'], 404);
+        // Cargar relaciones si se solicita
+        if ($request->has('with_promotion') && $request->with_promotion == '1') {
+            $orderDetail->load('promotion:id,name,type');
         }
-        
-        return $response;
 
+        return response()->json(new OrderDetailsResource($orderDetail));
     }
 
     /**
      * Update a resource.
      *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Http\Requests\OrderDetailsUpdateRequest $request
+     * @param App\Order_details $detail
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, Order_Details $detail) : JsonResponse
+    public function update(OrderDetailsUpdateRequest $request, Order_details $detail) : JsonResponse
     {
-
-        $attributes = [
-            'price_final' => $request->input('price_final'),
-            'weight' => $request->input('weight'),
-        ];
-         
-        $detail->fill($attributes);
+        $data = $request->validated();
+        
+        // Actualizar el detalle con los datos validados
+        $detail->fill($data);
         $detail->update();
 
-        return response()->json($detail);
+        // Actualizar el total de la orden
+        $this->updateOrderTotal($detail->id_order);
+
+        // Cargar relaciones si se solicita
+        if ($request->has('with_promotion') && $request->with_promotion == '1') {
+            $detail->load('promotion:id,name,type');
+        }
+
+        return response()->json(new OrderDetailsResource($detail));
     }
 
     /**
      * Destroy a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Order_details $detail
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, $id) : JsonResponse
+    public function destroy(Request $request, Order_details $detail) : JsonResponse
     {
-        
-        $detail = Order_details::destroy($id);
-        return response()->json($detail);
+        try {
+            $orderId = $detail->id_order;
+            $detail->delete();
+
+            // Actualizar el total de la orden después de eliminar el detalle
+            $this->updateOrderTotal($orderId);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Detalle del pedido eliminado exitosamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar el detalle del pedido: ' . $e->getMessage()
+            ], 500);
+        }
     }
-
-    /**
-     * Restore a resource.
-     *
-     * @param Illuminate\Http\Request $request
-     * @param string $id
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
-    public function restore(Request $request, $id)
-    {
-        $order = Order::withTrashed()->where('id', $id)->first();
-        $order->deleted_at = null;
-        $order->update();
-
-        return response()->json($this->paginatedQuery($request));
-    }
-
 
     /**
      * Get the paginated resource query.
      *
-     * @param Illuminate\Http\Request
+     * @param Illuminate\Http\Request $request
      *
      * @return Illuminate\Pagination\LengthAwarePaginator
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $userid = \Auth::id();
+        $orderDetails = Order_details::orderBy(
+            $request->input('sortBy') ?? 'created_at',
+            $request->input('sortType') ?? 'DESC'
+        )
+        ->when($request->has('search'), function ($query) use ($request) {
+            $search = $request->input('search');
+            return $query->whereHas('product', function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%");
+            });
+        })
+        ->when($request->has('id_order'), function ($query) use ($request) {
+            return $query->where('id_order', $request->id_order);
+        })
+        ->when($request->has('id_product'), function ($query) use ($request) {
+            return $query->where('id_product', $request->id_product);
+        })
+        ->when($request->has('promotion_id'), function ($query) use ($request) {
+            return $query->where('promotion_id', $request->promotion_id);
+        })
+        ->when($request->has('with_promotion') && $request->with_promotion == '1', function ($query) {
+            return $query->with('promotion:id,name,type');
+        })
+        ->with('product:id,name,code_miyi');
 
-        $orders = Order::leftjoin('customers','customers.id','=','orders.id_customer')
-            ->where('id_user', '=', $userid)
-            ->orderBy(
-             $request->input('sortBy') ?? 'created_at',
-             $request->input('sortType') ?? 'DESC'
-        )->select('orders.*', 'customers.name as customer');
-
-        return $orders->paginate($request->input('perPage') ?? 40);
+        return $orderDetails->paginate($request->input('perPage') ?? 40);
     }
 
     /**
-     * Filter a specific column property
+     * Calculate and update the order total based on its details.
      *
-     * @param mixed $orders
-     * @param string $property
-     * @param array $filters
-     *
+     * @param int $orderId
      * @return void
      */
-    protected function filter($orders, string $property, array $filters)
+    protected function updateOrderTotal(int $orderId): void
     {
-        foreach ($filters as $keyword => $value) {
-            // Needed since LIKE statements requires values to be wrapped by %
-            if (in_array($keyword, ['like', 'nlike'])) {
-                $orders->where(
-                    $property,
-                    _to_sql_operator($keyword),
-                    "%{$value}%"
-                );
-
-                return;
-            }
-
-            $orders->where($property, _to_sql_operator($keyword), "{$value}");
+        $order = Order::find($orderId);
+        
+        if (!$order) {
+            return;
         }
+
+        // Calcular el total bruto sumando todos los price_final de los detalles
+        $totalBruto = $order->details()->sum('price_final');
+        
+        // Obtener el costo de entrega y el descuento de la orden
+        $deliveryCost = $order->delivery_cost ?? 0;
+        $discountPercentage = $order->discount ?? 0;
+        
+        // Calcular el descuento en monto
+        $discountAmount = ($totalBruto * $discountPercentage) / 100;
+        
+        // Calcular el total final
+        $total = $totalBruto + $deliveryCost - $discountAmount;
+        
+        // Actualizar la orden con los totales calculados
+        $order->update([
+            'total_bruto' => round($totalBruto, 2),
+            'total' => round($total, 2)
+        ]);
     }
 }

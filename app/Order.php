@@ -2,6 +2,9 @@
 
 namespace App;
 
+use App\Order_details;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use DB;
@@ -14,6 +17,21 @@ class Order extends Model
     'date', 'reference_code', 'id_user', 'id_customer', 'notes', 'total', 'invoice_afip', 'nro_afip',
     'print_status', 'total_bruto', 'delivery_cost', 'payment_method','discount'
   ];
+
+  public function details(): HasMany
+  {
+    return $this->hasMany(Order_details::class, 'id_order', 'id');
+  }
+
+  public function customer(): BelongsTo
+  {
+    return $this->belongsTo(Customer::class, 'id_customer', 'id');
+  }
+
+  public function user(): BelongsTo
+  {
+    return $this->belongsTo(User::class, 'id_user', 'id');
+  }
 
   public function getRecordTitle()
   {

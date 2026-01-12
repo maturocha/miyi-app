@@ -67,7 +67,7 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::resource('orders', 'OrdersController');
 
-                Route::get('comprobante/{id}',  'OrderController@viewVoucher');
+                Route::get('orders/{id}/print',  'OrdersController@print');
 
                 Route::resource('details', 'OrdersDetailsController');
 
@@ -82,6 +82,8 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::resource('categories', 'CategoriesController');
 
                 Route::resource('products', 'ProductsController');
+
+                Route::resource('promotions', 'PromotionController');
 
                 Route::resource('stock', 'StockController');
 

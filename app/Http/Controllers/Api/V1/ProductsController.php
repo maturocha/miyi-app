@@ -3,18 +3,17 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Product;
-use DB;
 
 use App\Http\Controllers\Api\V1\ImageController;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Carbon\Carbon;
 
 use App\Exports\ProductsExport;
+use App\Http\Requests\ProductFormRequest;
+use App\Http\Resources\ProductResource;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ProductsController extends Controller
@@ -28,7 +27,16 @@ class ProductsController extends Controller
      */
     public function index(Request $request) : JsonResponse
     {
-        return response()->json($this->paginatedQuery($request));
+        $paginator = $this->paginatedQuery($request);
+        
+        // Aplicar Resource de forma optimizada
+        $paginator->setCollection(
+            $paginator->getCollection()->map(function ($product) use ($request) {
+                return new ProductResource($product);
+            })
+        );
+    
+    return response()->json($paginator);
     }
 
         /**
@@ -43,48 +51,37 @@ class ProductsController extends Controller
         return Excel::download(new ProductsExport, 'products.xlsx');
     }
 
-    private function getValues(Request $request)
+    public function store(ProductFormRequest $request)
     {
-
-        $values = $request->all();
-        
-        $price_unit = $values['price_purchase'] + (($values['price_purchase']*$values['percentage_may'])/100);
-        $price_min = $values['price_purchase'] + (($values['price_purchase']*$values['percentage_min'])/100);
-
-        $values['price_unit'] = number_format((float)$price_unit, 2,'.', '');
-        $values['price_min'] = number_format((float)$price_min, 2,'.', '');
-
-        return $values;
-    }
-
-    /**
-     * Store a new resource.
-     *
-     * @param Illuminate\Http\Request $request
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
-    public function store(Request $request) : JsonResponse
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-        ]);
-
-        $values = $this->getValues($request);
-
-        $product = Product::create($values);
+        $product = Product::create($request->validated());
 
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $name = Str::slug($record->name).'_'.time();
+            $name = \Str::slug($product->name) . '_' . time();
             $id = $product->id;
             $image = new ImageController();
             $image->updateImage($file, $name, $id);
-            
-       }
+        }
 
-        return response()->json($product, 201);
+        return new ProductResource($product);
     }
+
+    public function update(ProductFormRequest $request, Product $product)
+    {
+        $product->update($request->validated());
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $name = \Str::slug($product->name) . '_' . time();
+            $id = $product->id;
+            $image = new ImageController();
+            $image->updateImage($file, $name, $id);
+        }
+
+        return new ProductResource($product);
+    }
+
+   
 
     /**
      * Show a resource.
@@ -94,33 +91,9 @@ class ProductsController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function show(Request $request, Product $product) : JsonResponse
+    public function show(Request $request, Product $product) : ProductResource
     {
-        $response['data'] = $product;
-        $response['data']['image'] = $product->getImages();
-        $response['data']['history_prices'] = $product->historyPrices();
-        $response['data']['history_stock'] = $product->stockMoving();
-        $response['data']['history_sales'] = $product->orderMoving();
-        return response()->json($response, 200);
-    }
-
-    /**
-     * Update a resource.
-     *
-     * @param Illuminate\Http\Request $request
-     * @param App\Product $meetup
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
-    public function update(Request $request, Product $product) : JsonResponse
-    {
-
-        $attributes = $this->getValues($request);
-        
-        $product->fill($attributes);
-        $product->update();
-
-        return response()->json($product);
+        return new ProductResource($product);
     }
 
     /**
@@ -148,13 +121,20 @@ class ProductsController extends Controller
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function restore(Request $request, $id)
+    public function restore(Request $request, $id) : JsonResponse
     {
         $product = Product::withTrashed()->where('id', $id)->first();
         $product->deleted_at = null;
         $product->update();
 
-        return response()->json($this->paginatedQuery($request));
+        $paginator = $this->paginatedQuery($request);
+        
+        // Aplicar ProductResource a cada item manteniendo la estructura de paginación
+        $paginator->getCollection()->transform(function ($product) use ($request) {
+            return (new ProductResource($product))->toArray($request);
+        });
+        
+        return response()->json($paginator);
     }
 
 
@@ -167,25 +147,33 @@ class ProductsController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $products = Product::when($request->has('search'), function ($query) use ($request) {
+        $products = Product::orderBy(
+            $request->input('sortBy') ?? 'name',
+            $request->input('sortType') ?? 'ASC'
+       )
+       ->with('activePromotions')
+       ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
             return $query->where(function($q) use ($search) {
                         $q->where('code_miyi', 'like', "%$search%")
                         ->orWhere('name', 'like', "%$search%");
                    });
         })
-        ->when($request->has('stock'), function ($query) use ($request) {
-            
-            return $query->where(function($queryContainer){
-                $queryContainer->where(function($q){
+        ->when($request->has('in_stock'), function ($query) use ($request) {
+            $in_stock = $request->input('in_stock') == '1';
+
+            if ($in_stock) {
+                return $query->where(function($q){
                     $q->where('stock','>',0)
                         ->where('own_product','=',1);
                     })
                     ->orwhere(function($q){
                         $q->where('stock','<>',0)
                         ->where('own_product','=', 0);
-                        });    
-                });
+                    });    
+            } else {    
+                return $query->where('stock','=',0);
+            }
         })
         ->when($request->has('id_category'), function ($query) use ($request) {
             $category = $request->input('id_category');

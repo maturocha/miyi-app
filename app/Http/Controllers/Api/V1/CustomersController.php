@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
+use App\Http\Resources\CustomerResource;
 
 class CustomersController extends Controller
 {
@@ -51,29 +52,16 @@ class CustomersController extends Controller
     /**
      * Show a resource.
      *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order $order
+     * @param App\Customer $customer
      *
      * @return Illuminate\Http\JsonResponse
      */
-
-     
-    public function show($id) : JsonResponse
-
+    public function show(Customer $customer) : JsonResponse
     {
-
-        $customer = Customer::getByID($id);
-        if ($customer) {
-            $customer['details'] = $customer->getOrders();
-            $customer['products'] = $customer->getProducts();
-            $response['data'] = $customer;
-            $response = response()->json($response, 200);
-        } else {
-            $response = response()->json(['data' => 'Resource not found'], 404);
-        }
-        
-        return $response;
-
+        return response()->json([
+            'success' => true,
+            'data' => new CustomerResource($customer)
+        ]);
     }
 
     /**
@@ -137,35 +125,51 @@ class CustomersController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $userid = \Auth::id();
+        $query = Customer::query();
 
-        $customers = Customer::orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
-        )
-
-        ->when($request->has('search'), function ($query) use ($request) {
+        // Apply search filter
+        if ($request->has('search')) {
             $search = $request->input('search');
-            return $query->where(function($q) use ($search) {
-                $q->where('fullname', 'like', "%$search%")
-                    ->orWhere('name', 'like', "%$search%");
-                   });
-        })
-        ->when($request->has('id_neighborhood'), function ($query) use ($request) {        
-            $neighborhood = $request->input('id_neighborhood');
-            $query->join('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
-            ->where('neighborhoods.id', '=', "$neighborhood");   
-        })
-        ->when($request->has('id_zone'), function ($query) use ($request) {        
-            $zone = $request->input('id_zone');
-            $query->join('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
-            ->join('zones','zones.id','=','neighborhoods.id_zone')
-            ->where('zones.id', '=', "$zone");   
-        })
-        ->select('customers.*')
-        ->whereNull('customers.deleted_at');
+            $query->where(function($q) use ($search) {
+                $q->where('customers.fullname', 'like', "%{$search}%")
+                  ->orWhere('customers.name', 'like', "%{$search}%");
+            });
+        }
 
-        return $customers->paginate($request->input('perPage') ?? 40);
+        // Apply neighborhood filter
+        if ($request->has('id_neighborhood')) {
+            $neighborhood = $request->input('id_neighborhood');
+            $query->join('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood')
+                  ->where('neighborhoods.id', '=', $neighborhood);
+        }
+
+        // Apply zone filter
+        if ($request->has('id_zone')) {
+            $zone = $request->input('id_zone');
+            // Only join neighborhoods if not already joined
+            if (!$request->has('id_neighborhood')) {
+                $query->join('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood');
+            }
+            $query->join('zones', 'zones.id', '=', 'neighborhoods.id_zone')
+                  ->where('zones.id', '=', $zone);
+        }
+
+        // Apply sorting with explicit table prefix
+        $sortBy = $request->input('sortBy') ?? 'name';
+        $sortType = $request->input('sortType') ?? 'ASC';
+        
+        // Ensure sortBy column is prefixed with table name if it's a customers column
+        if (!str_contains($sortBy, '.')) {
+            $sortBy = "customers.{$sortBy}";
+        }
+        
+        $query->orderBy($sortBy, $sortType);
+
+        // Select only customers columns and apply soft delete filter
+        $query->select('customers.*')
+              ->whereNull('customers.deleted_at');
+
+        return $query->paginate($request->input('perPage') ?? 40);
     }
 
     /**

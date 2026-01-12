@@ -26,6 +26,11 @@ class Product extends Model
       return $this->name;
   }
 
+  public function category()
+  {
+      return $this->belongsTo(Category::class, 'id_category');
+  }
+
   public static function inStock() {
     return self::select('products.id as id', 'products.name as name', 'products.code_miyi as code', 'products.stock', 'products.price_unit', 'products.interval_quantity', 'products.own_product', 'products.bulto')
                 ->groupBy('products.id')
@@ -176,7 +181,7 @@ class Product extends Model
     return self::join('stock_details','products.id','=','stock_details.id_product')
                 ->join('stocks','stock_details.id_stock','=','stocks.id')
                 ->where('products.id', '=', $this->id)
-                ->select('stocks.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
+                ->select('stocks.id', 'stocks.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
                 ->orderBy('stocks.created_at', 'DESC')
                 ->groupBy('stock_details.id')
                 ->get();
@@ -203,6 +208,44 @@ class Product extends Model
                 ->orderBy('stocks.created_at', 'DESC')
                 ->get();
 
+  }
+
+  /**
+   * Relación con promociones
+   */
+  public function promotions()
+  {
+    return $this->belongsToMany(Promotion::class, 'promotion_products');
+  }
+
+  /**
+   * Relación con promociones activas
+   */
+  public function activePromotions()
+  {
+    return $this->promotions()->active()->orderBy('priority');
+  }
+
+  /**
+   * Obtener promociones disponibles para este producto
+   *
+   * @return \Illuminate\Database\Eloquent\Collection
+   */
+  public function getAvailablePromotions()
+  {
+    return $this->activePromotions()
+      ->select('id', 'name', 'type', 'params', 'priority', 'exclusive')
+      ->get();
+  }
+
+  /**
+   * Verificar si el producto tiene promociones activas
+   *
+   * @return bool
+   */
+  public function hasActivePromotions()
+  {
+    return $this->activePromotions()->exists();
   }
 
   public static function getRankQuantity($dates, $topList) {

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Order_details;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 
@@ -23,7 +24,10 @@ class RouteServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        //
+        // Configurar route model binding para Order_details
+        Route::bind('detail', function ($value) {
+            return Order_details::findOrFail($value);
+        });
 
         parent::boot();
     }

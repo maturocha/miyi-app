@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Model;
  * Class Role
  *
  * @package App
- * @property string $title
+ * @property string $name
+ * @property string $key
 */
 class Role extends Model
 {
-    protected $fillable = ['title'];
+    protected $fillable = ['name', 'key'];
     
     
     

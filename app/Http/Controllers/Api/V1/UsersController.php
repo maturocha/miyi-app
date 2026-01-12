@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\User;
-use Illuminate\Http\UploadedFile;
+use App\Http\Requests\UserStoreRequest;
+use App\Http\Requests\UserUpdateRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,29 +27,13 @@ class UsersController extends Controller
     /**
      * Store a new resource.
      *
-     * @param Illuminate\Http\Request $request
+     * @param App\Http\Requests\UserStoreRequest $request
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function store(Request $request) : JsonResponse
+    public function store(UserStoreRequest $request) : JsonResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,NULL,id,deleted_at,NULL',
-            'role_id' => 'required',
-            'cel' => 'required',
-            'password' => 'required'
-        ]);
-
-
-        $user = User::create([
-            'name' => $request->input('name'),
-            'email' => $request->input('email'),
-            'role_id' => $request->input('role_id'),
-            'cel' => $request->input('cel'),
-            'password' => $request->input('password'),
-            //'username' => $request->input('username'),
-        ]);
+        $user = User::create($request->validated());
 
         return response()->json($user, 201);
     }
@@ -69,34 +54,21 @@ class UsersController extends Controller
     /**
      * Update a resource.
      *
-     * @param Illuminate\Http\Request $request
+     * @param App\Http\Requests\UserUpdateRequest $request
      * @param App\User $user
      *
      * @return Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, User $user) : JsonResponse
+    public function update(UserUpdateRequest $request, User $user) : JsonResponse
     {
-        $request->validate([
-            'firstname' => 'required_if:step,0|string|max:255',
-            'lastname' => 'required_if:step,0|string|max:255',
+        $validatedData = $request->validated();
+        
+        // Solo actualizar password si se proporciona
+        if (empty($validatedData['password'])) {
+            unset($validatedData['password']);
+        }
 
-            'gender' => 'nullable|in:female,male',
-            'birthdate' =>
-                'nullable|date:Y-m-d|before:'.now()->subYear(10)->format('Y-m-d'),
-            'address' => 'nullable|string|max:510',
-
-            'type' => 'required_if:step,1|in:superuser,user',
-            'email' =>
-                "required_if:step,1|email|unique:users,email,{$user->id},id,deleted_at,NULL",
-            'username' =>
-                "nullable|unique:users,username,{$user->id},id,deleted_at,NULL"
-        ]);
-
-        $attributes = $request->all();
-        unset($attributes['step']);
-
-        $user->fill($attributes);
-        $user->update();
+        $user->update($validatedData);
 
         return response()->json($user);
     }
@@ -127,13 +99,15 @@ class UsersController extends Controller
     public function restore(Request $request, $id)
     {
         $user = User::withTrashed()->where('id', $id)->first();
-        $user->deleted_at = null;
-        $user->update();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Usuario no encontrado'], 404);
+        }
+        
+        $user->restore();
 
         return response()->json($this->paginatedQuery($request));
     }
-
-   
 
     /**
      * Get the paginated resource query.
@@ -144,21 +118,18 @@ class UsersController extends Controller
      */
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
-        $users = User::leftjoin('roles','roles.id','=','users.role_id')
+        $users = User::leftJoin('roles', 'roles.id', '=', 'users.role_id')
             ->select('users.*', 'roles.name as rol')
             ->when($request->has('search'), function ($query) use ($request) {
                 $search = $request->input('search');
                 return $query->where(function($q) use ($search) {
-                    $q->where('users.name', 'like', "%{$search}%")
-                      ->orWhere('users.email', 'like', "%{$search}%")
+                    $q->where('users.email', 'like', "%{$search}%")
+                      ->orWhere('users.cel', 'like', "%{$search}%")
                       ->orWhere('roles.name', 'like', "%{$search}%");
                 });
             })
             ->when($request->has('role_id'), function ($query) use ($request) {
                 return $query->where('users.role_id', $request->input('role_id'));
-            })
-            ->when($request->has('type'), function ($query) use ($request) {
-                return $query->where('users.type', $request->input('type'));
             })
             ->orderBy(
                 $request->input('sortBy') ?? 'users.id',
@@ -166,32 +137,5 @@ class UsersController extends Controller
             );
 
         return $users->paginate($request->input('perPage') ?? 10);
-    }
-
-    /**
-     * Filter a specific column property
-     *
-     * @param mixed $users
-     * @param string $property
-     * @param array $filters
-     *
-     * @return void
-     */
-    protected function filter($users, string $property, array $filters)
-    {
-        foreach ($filters as $keyword => $value) {
-            // Needed since LIKE statements requires values to be wrapped by %
-            if (in_array($keyword, ['like', 'nlike'])) {
-                $users->where(
-                    $property,
-                    _to_sql_operator($keyword),
-                    "%{$value}%"
-                );
-
-                return;
-            }
-
-            $users->where($property, _to_sql_operator($keyword), "{$value}");
-        }
     }
 }

@@ -79,26 +79,38 @@ class SummaryController extends Controller
 
     }
 
-    public function statistics(Request $request)  : JsonResponse  {
+    public function statistics(Request $request)  : JsonResponse  
+    {
 
-        $user = Auth::user();
+        $type = $request->input('type', '');
+
         $start_date = Carbon::parse($request->input('start_date', ''))->format('Y-m-d');
         $end_date = Carbon::parse($request->input('end_date', ''))->format('Y-m-d');
-        $pmq = Product::getRankQuantity([$start_date, $end_date], 20);
-        $pmkg = Product::getRankKg([$start_date, $end_date], 20);
-        $pms = Product::getRankPurchase([$start_date, $end_date], 20);
-        $pmr = Product::getRentableProducts([$start_date, $end_date], 20);
-        $cxc = Category::getComisionByCategory([$start_date, $end_date], 20);
-        $cmc = Customer::getRankPurchase([$start_date, $end_date], 20);
 
-        $data = [
-            'pmq' => $pmq,
-            'pmkg' => $pmkg,
-            'pms' => $pms,
-            'pmr' => $pmr,
-            'cxc'   => $cxc,
-            'cmc'   => $cmc
-        ];
+        switch ($type) {
+            case 'products':
+                $data = [
+                    'pmq' => Product::getRankQuantity([$start_date, $end_date], 20),
+                    'pmkg' => Product::getRankKg([$start_date, $end_date], 20),
+                    'pms' => Product::getRankPurchase([$start_date, $end_date], 20),
+                    'pmr' => Product::getRentableProducts([$start_date, $end_date], 20)
+                ];
+                break;
+            case 'customers':
+                $data = [
+                    'cmc' => Customer::getRankPurchase([$start_date, $end_date], 20)
+                ];
+                break;
+            case 'categories':
+                $data = [
+                    'cxc' => Category::getComisionByCategory([$start_date, $end_date], 20)
+                ];
+                break;
+            default:
+                $data = [];
+                break;
+        }
+
 
         return response()->json($data);
 
