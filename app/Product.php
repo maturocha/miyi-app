@@ -184,7 +184,7 @@ class Product extends Model
                 ->select('stocks.id', 'stocks.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
                 ->orderBy('stocks.created_at', 'DESC')
                 ->groupBy('stock_details.id')
-                ->get();
+                ->take(20)->get();
 
   }
 
@@ -195,7 +195,7 @@ class Product extends Model
                 ->select('orders.created_at as date', 'orders.id', DB::raw('SUM(order_details.quantity) as quantity'))
                 ->orderBy('orders.created_at', 'DESC')
                 ->groupBy('order_details.id')
-                ->get();
+                ->take(20)->get();
 
   }
 
