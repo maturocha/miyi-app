@@ -1,37 +1,49 @@
 <?php
 
-use Faker\Generator as Faker;
+namespace Database\Factories;
+
+use App\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-/*
-|--------------------------------------------------------------------------
-| Model Factories
-|--------------------------------------------------------------------------
-|
-| This directory should contain each of the model factory definitions for
-| your application. Factories provide a convenient way to generate new
-| model instances for testing / seeding your application's database.
-|
-*/
+class UserFactory extends Factory
+{
+    /**
+     * The name of the factory's corresponding model.
+     *
+     * @var string
+     */
+    protected $model = User::class;
 
-$factory->define(App\User::class, function (Faker $faker) {
-    $gender = $faker->randomElements(['female', 'male'])[0];
+    /**
+     * Define the model's default state.
+     *
+     * @return array
+     */
+    public function definition()
+    {
+        $gender = $this->faker->randomElement(['female', 'male']);
 
-    return [
-        'firstname' => ($firstName = (
-            $gender === 'female' ? $faker->firstNameFemale : $faker->firstNameMale
-        )),
-        'middlename' => ($middleName = $faker->lastName),
-        'lastname' => ($lastName = $faker->lastName),
-        'gender' => $gender,
-        'birthdate' => $faker->dateTimeThisCentury->format('Y-m-d'),
-        'address' => $faker->address,
+        $firstName = $gender === 'female' 
+            ? $this->faker->firstNameFemale 
+            : $this->faker->firstNameMale;
+        
+        $middleName = $this->faker->lastName;
+        $lastName = $this->faker->lastName;
 
-        'type' => $faker->randomElements(['superuser', 'user'])[0],
-        'name' => "{$firstName} {$middleName} {$lastName}",
-        'username' => $faker->userName,
-        'email' => $faker->unique()->safeEmail,
-        'password' => bcrypt('secret'),
-        'remember_token' => Str::random(10),
-    ];
-});
+        return [
+            'firstname' => $firstName,
+            'middlename' => $middleName,
+            'lastname' => $lastName,
+            'gender' => $gender,
+            'birthdate' => $this->faker->dateTimeThisCentury->format('Y-m-d'),
+            'address' => $this->faker->address,
+            'type' => $this->faker->randomElement(['superuser', 'user']),
+            'name' => "{$firstName} {$middleName} {$lastName}",
+            'username' => $this->faker->userName,
+            'email' => $this->faker->unique()->safeEmail,
+            'password' => bcrypt('secret'),
+            'remember_token' => Str::random(10),
+        ];
+    }
+}

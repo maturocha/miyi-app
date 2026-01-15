@@ -23,12 +23,12 @@ class UsersTest extends BaseTest
     {
         // A test data that will be used by the API to create a user.
         $attributes = [
-            'type' => $this->faker->randomElements(['superuser', 'user'])[0],
+            'type' => $this->faker->randomElement(['superuser', 'user']),
             'firstname' => $this->faker->firstName,
             'middlename' => $this->faker->lastName,
             'lastname' => $this->faker->lastName,
 
-            'gender' => $this->faker->randomElements(['female', 'male'])[0],
+            'gender' => $this->faker->randomElement(['female', 'male']),
             'birthdate' => now()->subYears(mt_rand(10, 50))->format('Y-m-d'),
             'address' => $this->faker->address,
 

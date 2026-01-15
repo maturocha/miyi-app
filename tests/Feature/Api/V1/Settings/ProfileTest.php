@@ -10,7 +10,7 @@ class ProfileTest extends BaseTest
     /** @test */
     public function a_user_can_update_its_profile()
     {
-        $gender = $this->faker->randomElements(['female', 'male'])[0];
+        $gender = $this->faker->randomElement(['female', 'male']);
 
         $attributes = [
             'firstname' => ($firstName = (

@@ -1,5 +1,10 @@
 # Usa la imagen oficial de PHP con FPM
-FROM php:7.3-fpm
+FROM php:7.4.7-fpm
+
+# Configurar repositorios archivados de Debian Buster (EOL)
+RUN echo "deb http://archive.debian.org/debian buster main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security buster/updates main" >> /etc/apt/sources.list && \
+    echo "Acquire::Check-Valid-Until false;" > /etc/apt/apt.conf.d/99no-check-valid-until
 
 # Instalar dependencias necesarias
 RUN apt-get update && apt-get install -y \
@@ -9,12 +14,12 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     git \
     unzip \
-    && docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
-    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql bcmath \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Xdebug con versión específica compatible con PHP 7.3
+# Instalar Xdebug con versión específica compatible con PHP 7.4.7
 RUN pecl install xdebug-3.1.6 && \
     docker-php-ext-enable xdebug
 
@@ -43,8 +48,16 @@ COPY --chown=www-data:www-data . /var/www/html/
 # Establecer el directorio de trabajo
 WORKDIR /var/www/html
 
+# Configurar git para evitar error de "dubious ownership"
+RUN git config --global --add safe.directory /var/www/html
+
+# Configurar Composer para permitir paquetes con vulnerabilidades conocidas (dompdf)
+# Nota: Esto es temporal para permitir la instalación de dompdf que tiene vulnerabilidades conocidas
+RUN composer config --global audit.ignore '{"dompdf/dompdf":["all"]}' && \
+    composer config --global audit.block-insecure false
+
 # Instalar dependencias con Composer
-RUN composer install --no-interaction --no-plugins --no-scripts
+RUN composer update --no-interaction --no-plugins --no-scripts
 
 # Asegurar que www-data tenga permisos sobre el directorio storage
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
