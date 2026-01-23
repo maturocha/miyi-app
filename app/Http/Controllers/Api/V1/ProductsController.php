@@ -153,11 +153,17 @@ class ProductsController extends Controller
        )
        ->with('activePromotions')
        ->when($request->has('search'), function ($query) use ($request) {
-            $search = $request->input('search');
-            return $query->where(function($q) use ($search) {
-                        $q->where('code_miyi', 'like', "%$search%")
-                        ->orWhere('name', 'like', "%$search%");
-                   });
+            $search = trim($request->input('search'));
+            $searchTerms = preg_split('/\s+/', $search); // Divide en palabras individuales
+            
+            return $query->where(function($q) use ($searchTerms) {
+                foreach ($searchTerms as $term) {
+                    $q->where(function($subQuery) use ($term) {
+                        $subQuery->where('code_miyi', 'like', "%{$term}%")
+                                ->orWhere('name', 'like', "%{$term}%");
+                    });
+                }
+            });
         })
         ->when($request->has('in_stock'), function ($query) use ($request) {
             $in_stock = $request->input('in_stock') == '1';

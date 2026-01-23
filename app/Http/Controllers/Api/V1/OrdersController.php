@@ -125,9 +125,12 @@ class OrdersController extends Controller
             })
             ->when($request->has('search'), function ($query) use ($request) {
                 $search = $request->input('search');
-                $query->where(function ($query) use ($search) {
-                    $query->where('orders.id', '=', "$search");
-                });
+                $search = trim($search);
+                if ($search != '') {
+                    $query->where(function ($query) use ($search) {
+                        $query->where('orders.id', '=', "$search");
+                    });
+                }
             })
             ->when($request->has('id_zone'), function ($query) use ($request) {        
                 $zone = $request->input('id_zone');
