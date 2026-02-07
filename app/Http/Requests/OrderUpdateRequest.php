@@ -24,6 +24,7 @@ class OrderUpdateRequest extends FormRequest
     public function rules()
     {
         return [
+            'id_customer' => 'sometimes|exists:customers,id',
             'notes' => 'nullable|string|max:1000',
             'delivery_cost' => 'nullable|numeric|min:0|max:999999.99',
             'discount' => 'nullable|numeric|min:0|max:100',
