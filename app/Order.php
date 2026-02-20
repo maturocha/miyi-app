@@ -5,6 +5,7 @@ namespace App;
 use App\Order_details;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use DB;
@@ -15,7 +16,7 @@ class Order extends Model
   protected $primaryKey = 'id';
   protected $fillable = [
     'date', 'reference_code', 'id_user', 'id_customer', 'notes', 'total', 'invoice_afip', 'nro_afip',
-    'print_status', 'total_bruto', 'delivery_cost', 'payment_method','discount'
+    'print_status', 'total_bruto', 'delivery_cost', 'payment_method','discount', 'status'
   ];
 
   public function details(): HasMany
@@ -31,6 +32,26 @@ class Order extends Model
   public function user(): BelongsTo
   {
     return $this->belongsTo(User::class, 'id_user', 'id');
+  }
+
+  /**
+   * Get the deliveries for the order.
+   */
+  public function deliveries(): BelongsToMany
+  {
+    return $this->belongsToMany(Delivery::class, 'delivery_orders')
+      ->using(DeliveryOrder::class)
+      ->withPivot([
+        'sequence',
+        'delivery_status',
+        'collected_amount',
+        'payment_method',
+        'payment_reference',
+        'observations',
+        'delivered_at',
+        'failure_reason',
+      ])
+      ->withTimestamps();
   }
 
   public function getRecordTitle()
@@ -123,6 +144,36 @@ class Order extends Model
                 ->select('categories.name as category', 'products.name', DB::raw('sum(order_details.quantity) as cant'))
                 ->groupBy('category', 'products.name')
                 ->get();
+  }
+
+  /**
+   * Products and quantities to load for a delivery (aggregated by zone, category and product).
+   * Zone comes from order's customer neighborhood. Only orders linked via delivery_orders.
+   */
+  public static function getProductsByDelivery(int $deliveryId)
+  {
+    return self::query()
+      ->join('delivery_orders', function ($join) use ($deliveryId) {
+        $join->on('delivery_orders.order_id', '=', 'orders.id')
+             ->where('delivery_orders.delivery_id', '=', $deliveryId);
+      })
+      ->join('customers', 'orders.id_customer', '=', 'customers.id')
+      ->join('neighborhoods', 'customers.id_neighborhood', '=', 'neighborhoods.id')
+      ->join('zones', 'neighborhoods.id_zone', '=', 'zones.id')
+      ->join('order_details', 'order_details.id_order', '=', 'orders.id')
+      ->join('products', 'products.id', '=', 'order_details.id_product')
+      ->join('categories', 'products.id_category', '=', 'categories.id')
+      ->select(
+        'zones.name as zone',
+        'categories.name as category',
+        'products.name',
+        DB::raw('SUM(order_details.quantity) as cant')
+      )
+      ->groupBy('zones.name', 'zones.id', 'categories.name', 'products.name')
+      ->orderBy('zone')
+      ->orderBy('category')
+      ->orderBy('products.name')
+      ->get();
   }
 
   public static function getCustomerByDate($date, $zone) {

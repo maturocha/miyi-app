@@ -66,6 +66,9 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::get('images/{id}', 'ImageController@showImage');
 
                 Route::resource('orders', 'OrdersController');
+                // Cambio de estado individual y masivo de pedidos
+                Route::put('orders/{order}/status', 'OrdersController@updateStatus');
+                Route::put('orders/bulk-status', 'OrdersController@bulkUpdateStatus');
 
                 Route::get('orders/{id}/print',  'OrdersController@print');
 
@@ -92,6 +95,16 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::get('statistics',  'SummaryController@statistics');
 
                 Route::resource('notifications', 'NotificationsController', ['except' => ['edit', 'create']]);
+
+                Route::resource('deliveries', 'DeliveriesController');
+                Route::get('deliveries/{delivery}/cargas', 'DeliveriesController@cargas');
+                Route::post('deliveries/{delivery}/add-pending-orders', 'DeliveriesController@addPendingOrders');
+                Route::post('deliveries/{delivery}/orders', 'DeliveriesController@addOrder');
+                Route::put('deliveries/{delivery}/orders/{order}', 'DeliveriesController@updateOrder');
+                Route::put('deliveries/{delivery}/expenses', 'DeliveriesController@updateExpenses');
+                Route::post('deliveries/{delivery}/start', 'DeliveriesController@start');
+                Route::post('deliveries/{delivery}/finish', 'DeliveriesController@finish');
+                Route::post('deliveries/{delivery}/close', 'DeliveriesController@close');
 
             });
         });

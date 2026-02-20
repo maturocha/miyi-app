@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\OrderStatus;
 use Illuminate\Foundation\Http\FormRequest;
 
 class OrderUpdateRequest extends FormRequest
@@ -25,6 +26,7 @@ class OrderUpdateRequest extends FormRequest
     {
         return [
             'id_customer' => 'sometimes|exists:customers,id',
+            'status' => 'sometimes|in:' . implode(',', OrderStatus::all()),
             'notes' => 'nullable|string|max:1000',
             'delivery_cost' => 'nullable|numeric|min:0|max:999999.99',
             'discount' => 'nullable|numeric|min:0|max:100',
