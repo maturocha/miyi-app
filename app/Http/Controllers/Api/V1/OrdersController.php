@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Order;
 use App\Order_details;
+use App\OrderStatus;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +14,7 @@ use Carbon\Carbon;
 use PDF;
 use App\Http\Requests\OrderUpdateRequest;
 use App\Http\Resources\OrderResource;
+use Illuminate\Support\Facades\DB;
 
 class OrdersController extends Controller
 {
@@ -72,6 +74,30 @@ class OrdersController extends Controller
     }
 
     /**
+     * Actualizar sólo el estado de un pedido.
+     *
+     * @param Request $request
+     * @param Order   $order
+     * @return JsonResponse
+     */
+    public function updateStatus(Request $request, Order $order): JsonResponse
+    {
+        $data = $request->validate([
+            'status' => 'required|in:' . implode(',', OrderStatus::all()),
+        ]);
+
+        $order->update([
+            'status' => $data['status'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Estado del pedido actualizado correctamente',
+            'data' => $order->fresh(),
+        ]);
+    }
+
+    /**
      * Destroy a resource.
      *
      * @param Illuminate\Http\Request $request
@@ -88,6 +114,31 @@ class OrdersController extends Controller
         $order->delete();
 
         return response()->json($this->paginatedQuery($request));
+    }
+
+    /**
+     * Actualizar el estado de múltiples pedidos en bloque.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function bulkUpdateStatus(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'order_ids' => 'required|array',
+            'order_ids.*' => 'integer|exists:orders,id',
+            'status' => 'required|in:' . implode(',', OrderStatus::all()),
+        ]);
+
+        DB::transaction(function () use ($data) {
+            Order::whereIn('id', $data['order_ids'])
+                ->update(['status' => $data['status']]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Estados de pedidos actualizados correctamente',
+        ]);
     }
 
     /**
@@ -138,7 +189,14 @@ class OrdersController extends Controller
                 ->join('zones','zones.id','=','neighborhoods.id_zone')
                 ->where('zones.id', '=', "$zone");   
             })
-           
+            ->when($request->has('status'), function ($query) use ($request) {
+                $status = $request->input('status');
+                if (is_array($status)) {
+                    $query->whereIn('orders.status', $status);
+                } else {
+                    $query->where('orders.status', $status);
+                }
+            })
              ->orderBy(
                 'orders.date',
                 $request->input('sortType') ?? 'DESC')
