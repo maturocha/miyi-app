@@ -65,10 +65,12 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::get('images/{id}', 'ImageController@showImage');
 
-                Route::resource('orders', 'OrdersController');
                 // Cambio de estado individual y masivo de pedidos
                 Route::put('orders/{order}/status', 'OrdersController@updateStatus');
                 Route::put('orders/bulk-status', 'OrdersController@bulkUpdateStatus');
+
+                Route::resource('orders', 'OrdersController');
+
 
                 Route::get('orders/{id}/print',  'OrdersController@print');
 
