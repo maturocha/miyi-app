@@ -3,11 +3,17 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class DeliveryOrder extends Pivot
 {
     protected $table = 'delivery_orders';
+
+    /** Table has its own id; required so relationships (e.g. payments()) use it correctly. */
+    protected $primaryKey = 'id';
+
+    public $incrementing = true;
 
     protected $fillable = [
         'delivery_id',
@@ -41,5 +47,13 @@ class DeliveryOrder extends Pivot
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Payments registered for this delivery order.
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(DeliveryOrderPayment::class, 'delivery_order_id', 'id');
     }
 }

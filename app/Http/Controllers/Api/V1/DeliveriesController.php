@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DeliveriesController extends Controller
 {
@@ -64,6 +65,7 @@ class DeliveriesController extends Controller
     {
         $delivery = Delivery::with([
             'owner:id,name',
+            'deliveryOrders.payments',
             'deliveryOrders.order.customer:id,name,address,cellphone',
             'deliveryOrders.order.customer.neighborhood:id,name',
         ])->find($id);
@@ -358,8 +360,13 @@ class DeliveriesController extends Controller
     {
         $user = Auth::user();
 
+        $collectedSubquery = DB::table('delivery_orders')
+            ->selectRaw('COALESCE(SUM(collected_amount), 0)')
+            ->whereColumn('delivery_id', 'deliveries.id');
+
         $deliveries = Delivery::with(['owner:id,name'])
             ->withCount('orders')
+            ->addSelect(['collected_total' => $collectedSubquery])
             ->when(!in_array($user->role_id, [1, 4]), function ($query) use ($user) {
                 // Repartidores solo ven sus propios repartos
                 $query->where('owner_user_id', $user->id);

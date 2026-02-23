@@ -236,10 +236,32 @@ class DeliveryService
     public function updateDeliveryOrder(Delivery $delivery, Order $order, array $data): void
     {
         DB::transaction(function () use ($delivery, $order, $data) {
+            $payments = $data['payments'] ?? [];
+
+            $totalFromPayments = 0;
+            $uniqueMethods = [];
+
+            if (is_array($payments)) {
+                foreach ($payments as $payment) {
+                    $amount = isset($payment['amount']) ? (float) $payment['amount'] : 0;
+                    if ($amount <= 0) {
+                        continue;
+                    }
+                    $totalFromPayments += $amount;
+                    if (!empty($payment['payment_method'])) {
+                        $uniqueMethods[] = $payment['payment_method'];
+                    }
+                }
+            }
+
+            $uniqueMethods = array_values(array_unique($uniqueMethods));
+
             $pivotData = [
                 'delivery_status' => $data['delivery_status'],
-                'collected_amount' => $data['collected_amount'] ?? 0,
-                'payment_method' => $data['payment_method'] ?? null,
+                'collected_amount' => $totalFromPayments > 0
+                    ? $totalFromPayments
+                    : ($data['collected_amount'] ?? 0),
+                'payment_method' => count($uniqueMethods) === 1 ? $uniqueMethods[0] : ($data['payment_method'] ?? null),
                 'payment_reference' => $data['payment_reference'] ?? null,
                 'observations' => $data['observations'] ?? null,
                 'failure_reason' => $data['failure_reason'] ?? null,
@@ -252,6 +274,30 @@ class DeliveryService
 
             // Update pivot - use the correct pivot key
             $delivery->orders()->updateExistingPivot($order->id, $pivotData, false);
+
+            // Sync payments table if provided
+            if (is_array($payments)) {
+                $deliveryOrder = DeliveryOrder::where('delivery_id', $delivery->id)
+                    ->where('order_id', $order->id)
+                    ->first();
+
+                if ($deliveryOrder) {
+                    $deliveryOrder->payments()->delete();
+
+                    foreach ($payments as $payment) {
+                        $amount = isset($payment['amount']) ? (float) $payment['amount'] : 0;
+                        if ($amount <= 0 || empty($payment['payment_method'])) {
+                            continue;
+                        }
+
+                        $deliveryOrder->payments()->create([
+                            'payment_method' => $payment['payment_method'],
+                            'amount' => $amount,
+                            'payment_reference' => $payment['payment_reference'] ?? null,
+                        ]);
+                    }
+                }
+            }
 
             // Update order status based on delivery_status
             if ($data['delivery_status'] === DeliveryOrderStatus::DELIVERED) {

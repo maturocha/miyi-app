@@ -39,6 +39,10 @@ class DeliveryOrderUpdateRequest extends FormRequest
             'payment_reference' => 'nullable|string|max:255',
             'observations' => 'nullable|string|max:1000',
             'failure_reason' => 'required_if:delivery_status,' . DeliveryOrderStatus::FAILED . '|nullable|string|max:500',
+            'payments' => 'nullable|array',
+            'payments.*.payment_method' => 'required_with:payments.*.amount|in:' . implode(',', PaymentMethod::all()),
+            'payments.*.amount' => 'nullable|numeric|min:0.01|max:999999.99',
+            'payments.*.payment_reference' => 'nullable|string|max:255',
         ];
     }
 
@@ -51,9 +55,18 @@ class DeliveryOrderUpdateRequest extends FormRequest
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
-            // Si collected_amount > 0 => payment_method requerido
-            if ($this->input('collected_amount') > 0 && !$this->input('payment_method')) {
-                $validator->errors()->add('payment_method', 'El método de pago es requerido cuando hay monto cobrado.');
+            $collectedAmount = (float) $this->input('collected_amount', 0);
+            $payments = $this->input('payments', []);
+
+            $hasPayments = is_array($payments) && collect($payments)
+                ->filter(function ($p) {
+                    return isset($p['amount']) && (float) $p['amount'] > 0 && !empty($p['payment_method']);
+                })
+                ->isNotEmpty();
+
+            // Si hay monto cobrado pero no se informan pagos ni método legacy, marcar error
+            if ($collectedAmount > 0 && !$hasPayments && !$this->input('payment_method')) {
+                $validator->errors()->add('payments', 'Debe registrar al menos un pago con método y monto cuando hay monto cobrado.');
             }
         });
     }
