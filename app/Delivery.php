@@ -27,6 +27,8 @@ class Delivery extends Model
         'expenses_amount' => 'decimal:2',
     ];
 
+    protected $appends = ['totals'];
+
     /**
      * Get the user (owner) that owns the delivery.
      */
@@ -81,5 +83,23 @@ class Delivery extends Model
     public function getNetAmountAttribute(): float
     {
         return $this->getTotalCollectedAttribute() - ($this->expenses_amount ?? 0);
+    }
+
+    /**
+     * Totals for list/detail (collected, expenses, net).
+     * Uses collected_total when set (e.g. from index subquery), otherwise computes via relation.
+     */
+    public function getTotalsAttribute(): array
+    {
+        $collected = isset($this->attributes['collected_total'])
+            ? (float) $this->attributes['collected_total']
+            : $this->getTotalCollectedAttribute();
+        $expenses = (float) ($this->expenses_amount ?? 0);
+
+        return [
+            'collected' => $collected,
+            'expenses' => $expenses,
+            'net' => $collected - $expenses,
+        ];
     }
 }

@@ -37,6 +37,16 @@ class DeliveryOrderResource extends JsonResource
             'payment_method' => $this->payment_method,
             'payment_reference' => $this->payment_reference,
             'observations' => $this->observations,
+            'payments' => $this->when($this->relationLoaded('payments'), function () {
+                return $this->payments->map(function ($payment) {
+                    return [
+                        'id' => $payment->id,
+                        'payment_method' => $payment->payment_method,
+                        'amount' => (float) $payment->amount,
+                        'payment_reference' => $payment->payment_reference,
+                    ];
+                })->values();
+            }),
             'delivered_at' => $this->delivered_at ? $this->delivered_at->toDateTimeString() : null,
             'failure_reason' => $this->failure_reason,
             'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,

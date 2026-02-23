@@ -170,7 +170,9 @@ class OrdersController extends Controller
     {
         $user = Auth::user();
 
-        $orders = Order::leftjoin('customers','customers.id','=','orders.id_customer')
+        $orders = Order::leftJoin('customers','customers.id','=','orders.id_customer')
+            ->leftJoin('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
+            ->leftJoin('zones','zones.id','=','neighborhoods.id_zone')
             ->when(($user->role_id <> 1 && $user->role_id <> 3), function ($query) use ($user) {
                     $query->where('id_user', '=', $user->id);
             })
@@ -185,9 +187,7 @@ class OrdersController extends Controller
             })
             ->when($request->has('id_zone'), function ($query) use ($request) {        
                 $zone = $request->input('id_zone');
-                $query->join('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
-                ->join('zones','zones.id','=','neighborhoods.id_zone')
-                ->where('zones.id', '=', "$zone");   
+                $query->where('zones.id', '=', "$zone");   
             })
             ->when($request->has('status'), function ($query) use ($request) {
                 $status = $request->input('status');
@@ -203,7 +203,12 @@ class OrdersController extends Controller
                 ->orderBy(
                     'orders.id',
                     $request->input('sortType') ?? 'DESC')
-            ->select('orders.*', 'customers.name as customer');
+            ->select(
+                'orders.*',
+                'customers.name as customer',
+                'customers.address as customer_address',
+                'zones.name as zone_name'
+            );
 
         return $orders->paginate($request->input('perPage') ?? 40);
     }
