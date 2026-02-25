@@ -38,11 +38,12 @@ class DeliveryPolicy
      */
     public function update(User $user, Delivery $delivery)
     {
-        // Solo admin o administración, y solo si status != FINISHED
+        // Solo admin o administración, y solo si el reparto NO ha sido iniciado todavía
         if (!in_array($user->role_id, [1, 3])) {
             return false;
         }
-        return $delivery->status !== DeliveryStatus::FINISHED && $delivery->status !== DeliveryStatus::CLOSED;
+
+        return $delivery->status === DeliveryStatus::NOT_STARTED;
     }
 
     /**

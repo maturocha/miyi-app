@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\DeliveryStatus;
+use App\OrderStatus;
+use Illuminate\Validation\Rule;
 
 class DeliveryUpdateRequest extends FormRequest
 {
@@ -24,8 +26,6 @@ class DeliveryUpdateRequest extends FormRequest
      */
     public function rules()
     {
-        $delivery = $this->route('delivery');
-        
         return [
             'delivery_date' => 'sometimes|date',
             'owner_user_id' => 'sometimes|exists:users,id',
@@ -33,6 +33,13 @@ class DeliveryUpdateRequest extends FormRequest
             'expenses_amount' => 'nullable|numeric|min:0|max:999999.99',
             'expenses_notes' => 'nullable|string|max:2000',
             'notes' => 'nullable|string|max:1000',
+            'orders' => 'nullable|array',
+            'orders.*.id' => [
+                'sometimes',
+                'integer',
+                Rule::exists('orders', 'id')->whereIn('status', [OrderStatus::READY_TO_SHIP, OrderStatus::ASSIGNED_TO_DELIVERY, OrderStatus::FAILED]),
+            ],
+            'orders.*.sequence' => 'nullable|integer|min:1',
         ];
     }
 
@@ -46,7 +53,13 @@ class DeliveryUpdateRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $delivery = $this->route('delivery');
-            
+
+            // Solo permitir edición cuando el reparto no ha sido iniciado
+            if ($delivery && $delivery->status !== DeliveryStatus::NOT_STARTED) {
+                $validator->errors()->add('delivery', 'Solo se pueden editar repartos que no han sido iniciados.');
+                return;
+            }
+
             // Validar transiciones de status
             if ($this->has('status') && $delivery) {
                 $newStatus = $this->input('status');

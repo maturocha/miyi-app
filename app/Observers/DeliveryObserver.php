@@ -30,4 +30,32 @@ class DeliveryObserver
             }
         }
     }
+
+    /**
+     * Handle the Delivery "deleting" event.
+     *
+     * When a delivery is deleted, reset related orders status and
+     * prevent deletion if the delivery is already closed.
+     *
+     * @param Delivery $delivery
+     * @return void
+     *
+     * @throws \Exception
+     */
+    public function deleting(Delivery $delivery)
+    {
+        if ($delivery->status === DeliveryStatus::CLOSED) {
+            throw new \Exception('No se puede eliminar un reparto cerrado.');
+        }
+
+        $orderIds = $delivery->orders()->pluck('orders.id');
+
+        if ($orderIds->isNotEmpty()) {
+            Order::whereIn('id', $orderIds)
+                ->update(['status' => OrderStatus::READY_TO_SHIP]);
+
+            // Detach all related orders from this delivery
+            $delivery->orders()->detach();
+        }
+    }
 }

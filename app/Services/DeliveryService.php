@@ -88,6 +88,74 @@ class DeliveryService
     }
 
     /**
+     * Sync delivery orders (pivot) with given payload and keep order statuses consistent.
+     *
+     * @param Delivery $delivery
+     * @param array $orders Array de IDs o de arrays ['id' => int, 'sequence' => int]
+     * @return void
+     */
+    public function syncOrders(Delivery $delivery, array $orders): void
+    {
+        DB::transaction(function () use ($delivery, $orders) {
+            $currentOrderIds = $delivery->orders()->pluck('orders.id')->all();
+
+            $normalized = [];
+            $sequence = 0;
+
+            foreach ($orders as $item) {
+                if (is_array($item)) {
+                    $orderId = isset($item['id']) ? (int) $item['id'] : 0;
+                    if ($orderId <= 0) {
+                        continue;
+                    }
+
+                    if (isset($item['sequence']) && (int) $item['sequence'] > 0) {
+                        $seq = (int) $item['sequence'];
+                        if ($seq > $sequence) {
+                            $sequence = $seq;
+                        }
+                    } else {
+                        $seq = ++$sequence;
+                    }
+                } else {
+                    $orderId = (int) $item;
+                    if ($orderId <= 0) {
+                        continue;
+                    }
+                    $seq = ++$sequence;
+                }
+
+                $normalized[$orderId] = [
+                    'sequence' => $seq,
+                ];
+            }
+
+            $newOrderIds = array_keys($normalized);
+
+            // Detach orders that are no longer present and rollback their status
+            $ordersToDetach = array_diff($currentOrderIds, $newOrderIds);
+            if (!empty($ordersToDetach)) {
+                $delivery->orders()->detach($ordersToDetach);
+
+                Order::whereIn('id', $ordersToDetach)
+                    ->where('status', OrderStatus::ASSIGNED_TO_DELIVERY)
+                    ->update(['status' => OrderStatus::READY_TO_SHIP]);
+            }
+
+            // Attach / update remaining orders with their sequence
+            if (!empty($normalized)) {
+                $delivery->orders()->syncWithoutDetaching($normalized);
+
+                // Ensure orders are marked as assigned to delivery
+                $allOrderIds = array_keys($normalized);
+                Order::whereIn('id', $allOrderIds)
+                    ->where('status', OrderStatus::READY_TO_SHIP)
+                    ->update(['status' => OrderStatus::ASSIGNED_TO_DELIVERY]);
+            }
+        });
+    }
+
+    /**
      * Add pending orders from the given zone and date to the delivery (idempotent).
      *
      * @param Delivery $delivery
