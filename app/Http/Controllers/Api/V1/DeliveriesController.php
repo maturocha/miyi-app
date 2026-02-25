@@ -131,11 +131,17 @@ class DeliveriesController extends Controller
         $this->authorize('update', $delivery);
         
         $validated = $request->validated();
-        
+
+        $ordersPayload = $validated['orders'] ?? null;
+
         // Don't allow updating status directly through update endpoint
-        unset($validated['status']);
-        
+        unset($validated['status'], $validated['orders']);
+
         $delivery->update($validated);
+
+        if (is_array($ordersPayload)) {
+            $this->deliveryService->syncOrders($delivery, $ordersPayload);
+        }
 
         return (new DeliveryResource($delivery->fresh()))->response()->setStatusCode(200);
     }
@@ -151,9 +157,23 @@ class DeliveriesController extends Controller
     {
         $this->authorize('delete', $delivery);
         
-        $delivery->delete();
+        if ($delivery->status === DeliveryStatus::CLOSED) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede eliminar un reparto cerrado.',
+            ], 422);
+        }
 
-        return response()->json($this->paginatedQuery($request));
+        try {
+            $delivery->delete();
+
+            return response()->json($this->paginatedQuery($request));
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
     }
 
     /**

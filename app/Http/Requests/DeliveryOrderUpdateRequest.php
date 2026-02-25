@@ -34,14 +34,14 @@ class DeliveryOrderUpdateRequest extends FormRequest
     {
         return [
             'delivery_status' => 'required|in:' . implode(',', DeliveryOrderStatus::all()),
-            'collected_amount' => 'nullable|numeric|min:0|max:999999.99',
+            'collected_amount' => 'nullable|numeric|min:0|max:9000000',
             'payment_method' => 'nullable|in:' . implode(',', PaymentMethod::all()),
             'payment_reference' => 'nullable|string|max:255',
             'observations' => 'nullable|string|max:1000',
             'failure_reason' => 'required_if:delivery_status,' . DeliveryOrderStatus::FAILED . '|nullable|string|max:500',
             'payments' => 'nullable|array',
             'payments.*.payment_method' => 'required_with:payments.*.amount|in:' . implode(',', PaymentMethod::all()),
-            'payments.*.amount' => 'nullable|numeric|min:0.01|max:999999.99',
+            'payments.*.amount' => 'nullable|numeric|min:0.01|max:9000000',
             'payments.*.payment_reference' => 'nullable|string|max:255',
         ];
     }
@@ -83,7 +83,7 @@ class DeliveryOrderUpdateRequest extends FormRequest
             'delivery_status.in' => 'El estado de entrega no es válido.',
             'collected_amount.numeric' => 'El monto cobrado debe ser un número.',
             'collected_amount.min' => 'El monto cobrado no puede ser negativo.',
-            'collected_amount.max' => 'El monto cobrado no puede exceder 999,999.99.',
+            'collected_amount.max' => 'El monto cobrado no puede exceder 9,000,000.',
             'payment_method.required_if' => 'El método de pago es requerido cuando hay monto cobrado.',
             'payment_method.in' => 'El método de pago no es válido.',
             'payment_reference.max' => 'La referencia de pago no puede exceder los 255 caracteres.',
