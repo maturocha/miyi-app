@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\AccountEntry;
 use App\Delivery;
 use App\DeliveryStatus;
 use App\Order;
@@ -11,6 +12,7 @@ use App\Http\Requests\DeliveryStoreRequest;
 use App\Http\Requests\DeliveryUpdateRequest;
 use App\Http\Requests\DeliveryAddOrderRequest;
 use App\Http\Requests\DeliveryOrderUpdateRequest;
+use App\Http\Resources\AccountEntryResource;
 use App\Http\Resources\DeliveryResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -66,7 +68,7 @@ class DeliveriesController extends Controller
         $delivery = Delivery::with([
             'owner:id,name',
             'deliveryOrders.payments',
-            'deliveryOrders.order.customer:id,name,address,cellphone',
+            'deliveryOrders.order.customer:id,name,address,cellphone,current_balance',
             'deliveryOrders.order.customer.neighborhood:id,name',
         ])->find($id);
 
@@ -80,7 +82,52 @@ class DeliveriesController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        $deliveryOrderIds = $delivery->deliveryOrders()->pluck('id');
+        $accountEntries = AccountEntry::query()
+            ->with(['customer:id,name', 'createdByUser:id,name', 'paymentMethods'])
+            ->where(function ($q) use ($delivery, $deliveryOrderIds) {
+                $q->where(function ($q2) use ($delivery) {
+                    $q2->where('source_type', 'delivery')->where('source_id', $delivery->id);
+                })->orWhere(function ($q2) use ($deliveryOrderIds) {
+                    $q2->where('source_type', 'delivery_orders')->whereIn('source_id', $deliveryOrderIds);
+                });
+            })
+            ->orderByDesc('occurred_at')
+            ->get();
+        $delivery->setRelation('accountEntries', $accountEntries);
+
         return (new DeliveryResource($delivery))->response()->setStatusCode(200);
+    }
+
+    /**
+     * List account entries (cobros) for this delivery: source_type=delivery + source_id, or source_type=delivery_orders + source_id in delivery's delivery_orders.
+     *
+     * @param Request $request
+     * @param Delivery $delivery
+     * @return JsonResponse
+     */
+    public function accountEntries(Request $request, Delivery $delivery): JsonResponse
+    {
+        $user = Auth::user();
+        if (!in_array($user->role_id, [1, 3]) && $delivery->owner_user_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $deliveryOrderIds = $delivery->deliveryOrders()->pluck('id');
+
+        $entries = AccountEntry::query()
+            ->with(['customer:id,name', 'createdByUser:id,name', 'paymentMethods'])
+            ->where(function ($q) use ($delivery, $deliveryOrderIds) {
+                $q->where(function ($q2) use ($delivery) {
+                    $q2->where('source_type', 'delivery')->where('source_id', $delivery->id);
+                })->orWhere(function ($q2) use ($deliveryOrderIds) {
+                    $q2->where('source_type', 'delivery_orders')->whereIn('source_id', $deliveryOrderIds);
+                });
+            })
+            ->orderByDesc('occurred_at')
+            ->get();
+
+        return response()->json(['data' => AccountEntryResource::collection($entries)]);
     }
 
     /**

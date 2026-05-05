@@ -14,7 +14,11 @@ class Customer extends Model
   protected $table = 'customers';
   protected $primaryKey = 'id';
   protected $fillable = [
-        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type'
+        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type', 'current_balance'
+  ];
+
+  protected $casts = [
+        'current_balance' => 'decimal:2',
   ];
 
   public function neighborhood()
@@ -25,6 +29,11 @@ class Customer extends Model
   public function orders()
   {
     return $this->hasMany(Order::class, 'id_customer', 'id');
+  }
+
+  public function accountEntries()
+  {
+    return $this->hasMany(AccountEntry::class, 'customer_id', 'id');
   }
 
 

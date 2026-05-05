@@ -72,11 +72,21 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::resource('orders', 'OrdersController');
 
 
-                Route::get('orders/{id}/print',  'OrdersController@print');
+                Route::get('orders/{order}/print',  'OrdersController@print');
 
                 Route::resource('details', 'OrdersDetailsController');
 
                 Route::resource('customers', 'CustomersController');
+                Route::get('customers/{id}/account-entries', 'CustomersController@accountEntries');
+                Route::get('customers/{id}/account-summary', 'CustomersController@accountSummary');
+
+                Route::get('account-entries', 'AccountEntriesController@index');
+                Route::post('account-entries', 'AccountEntriesController@store');
+                Route::post('account-entries/bulk-validate', 'AccountEntriesController@bulkValidate');
+                Route::get('account-entries/{account_entry}', 'AccountEntriesController@show');
+                Route::put('account-entries/{account_entry}/validate', 'AccountEntriesController@validateEntry');
+                Route::patch('account-entries/{account_entry}', 'AccountEntriesController@update');
+                Route::delete('account-entries/{account_entry}', 'AccountEntriesController@destroy');
 
                 Route::resource('providers', 'ProvidersController');
 
@@ -99,6 +109,7 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::resource('notifications', 'NotificationsController', ['except' => ['edit', 'create']]);
 
                 Route::resource('deliveries', 'DeliveriesController');
+                Route::get('deliveries/{delivery}/account-entries', 'DeliveriesController@accountEntries');
                 Route::get('deliveries/{delivery}/cargas', 'DeliveriesController@cargas');
                 Route::post('deliveries/{delivery}/add-pending-orders', 'DeliveriesController@addPendingOrders');
                 Route::post('deliveries/{delivery}/orders', 'DeliveriesController@addOrder');

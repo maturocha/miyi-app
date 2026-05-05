@@ -2,32 +2,61 @@
 
 namespace App\Observers;
 
+use App\AccountEntry;
 use App\Delivery;
 use App\DeliveryStatus;
 use App\Order;
 use App\OrderStatus;
+use App\Services\DeliveryLedgerService;
 
 class DeliveryObserver
 {
+    protected $ledgerService;
+
+    public function __construct(DeliveryLedgerService $ledgerService)
+    {
+        $this->ledgerService = $ledgerService;
+    }
+
     /**
      * Handle the Delivery "updated" event.
      *
-     * When the delivery status changes, update related orders accordingly.
+     * When the delivery status changes, update related orders and ledger (CHARGES/PAYMENTS).
      *
      * @param Delivery $delivery
      * @return void
      */
     public function updated(Delivery $delivery)
     {
-        if ($delivery->isDirty('status')) {
-            $newStatus = $delivery->status;
+        if (!$delivery->isDirty('status')) {
+            return;
+        }
+        $newStatus = $delivery->status;
 
-            if ($newStatus === DeliveryStatus::IN_PROGRESS) {
-                // When delivery starts, mark all associated orders as "out for delivery"
-                $orderIds = $delivery->orders()->pluck('orders.id');
-                Order::whereIn('id', $orderIds)
-                    ->update(['status' => OrderStatus::OUT_FOR_DELIVERY]);
+        if ($newStatus === DeliveryStatus::IN_PROGRESS) {
+            $orderIds = $delivery->orders()->pluck('orders.id');
+            Order::whereIn('id', $orderIds)
+                ->update(['status' => OrderStatus::OUT_FOR_DELIVERY]);
+        }
+
+        if ($newStatus === DeliveryStatus::FINISHED) {
+            $orderIds = $delivery->orders()->pluck('orders.id');
+            $alreadyHasCharges = AccountEntry::where('source_type', 'orders')
+                ->whereIn('source_id', $orderIds)
+                ->exists();
+            if (!$alreadyHasCharges) {
+                $this->ledgerService->createChargesForFinishedDelivery($delivery);
             }
+        }
+
+        if ($newStatus === DeliveryStatus::CLOSED) {
+            $alreadyHasPayments = AccountEntry::where('source_type', 'delivery_orders')
+                ->whereIn('source_id', $delivery->deliveryOrders()->pluck('id'))
+                ->exists();
+            if (!$alreadyHasPayments) {
+                $this->ledgerService->createPaymentsForClosedDelivery($delivery);
+            }
+            $this->ledgerService->validateAllPendingEntriesForClosedDelivery($delivery);
         }
     }
 

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\AccountEntry;
 use App\Delivery;
+use App\Policies\AccountEntryPolicy;
 use App\Policies\DeliveryPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -16,6 +18,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         'App\Model' => 'App\Policies\ModelPolicy',
+        AccountEntry::class => AccountEntryPolicy::class,
         Delivery::class => DeliveryPolicy::class,
     ];
 

@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\AccountEntry;
 use App\Customer;
+use App\Http\Resources\AccountEntryResource;
+use App\Http\Resources\CustomerResource;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
-use App\Http\Resources\CustomerResource;
 
 class CustomersController extends Controller
 {
@@ -61,6 +63,58 @@ class CustomersController extends Controller
         return response()->json([
             'success' => true,
             'data' => new CustomerResource($customer)
+        ]);
+    }
+
+    /**
+     * List account entries (movements) for a customer.
+     */
+    public function accountEntries(Request $request, $id): JsonResponse
+    {
+        $customer = Customer::find($id);
+        if (!$customer) {
+            return response()->json(['message' => 'Customer not found'], 404);
+        }
+        $query = AccountEntry::where('customer_id', $id)->with(['paymentMethods', 'createdByUser'])->orderByDesc('occurred_at');
+        if ($request->filled('date_from')) {
+            $query->where('occurred_at', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->where('occurred_at', '<=', $request->input('date_to'));
+        }
+        if ($request->filled('type')) {
+            $query->where('type', $request->input('type'));
+        }
+        $perPage = (int) ($request->input('per_page') ?? 20);
+        $paginator = $query->paginate($perPage);
+        $paginator->getCollection()->transform(function ($entry) {
+            return new AccountEntryResource($entry);
+        });
+        return response()->json([
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Account summary for a customer (current balance, optional breakdown).
+     */
+    public function accountSummary(Request $request, $id): JsonResponse
+    {
+        $customer = Customer::find($id);
+        if (!$customer) {
+            return response()->json(['message' => 'Customer not found'], 404);
+        }
+        return response()->json([
+            'data' => [
+                'customer_id' => (int) $id,
+                'current_balance' => (float) ($customer->current_balance ?? 0),
+            ],
         ]);
     }
 
@@ -152,6 +206,17 @@ class CustomersController extends Controller
             }
             $query->join('zones', 'zones.id', '=', 'neighborhoods.id_zone')
                   ->where('zones.id', '=', $zone);
+        }
+
+        // Apply balance_status filter (debtor = owes us, creditor = we owe them / they have credit, all = no filter)
+        if ($request->filled('balance_status')) {
+            $status = $request->input('balance_status');
+            if ($status === 'debtor') {
+                $query->where('customers.current_balance', '>', 0);
+            } elseif ($status === 'creditor') {
+                $query->where('customers.current_balance', '<', 0);
+            }
+            // 'all' or any other value: no filter
         }
 
         // Apply sorting with explicit table prefix
