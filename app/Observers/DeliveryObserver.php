@@ -4,9 +4,9 @@ namespace App\Observers;
 
 use App\Models\AccountEntry;
 use App\Models\Delivery;
-use App\Models\DeliveryStatus;
+use App\Models\Enums\DeliveryStatus;
 use App\Models\Order;
-use App\Models\OrderStatus;
+use App\Models\Enums\OrderStatus;
 use App\Services\DeliveryLedgerService;
 
 class DeliveryObserver

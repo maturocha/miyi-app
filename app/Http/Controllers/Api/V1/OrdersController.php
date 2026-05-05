@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Order;
 use App\Models\Order_details;
-use App\Models\OrderStatus;
+use App\Models\Enums\OrderStatus;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;

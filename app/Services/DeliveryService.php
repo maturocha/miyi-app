@@ -5,9 +5,9 @@ namespace App\Services;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\DeliveryOrder;
-use App\Models\OrderStatus;
-use App\Models\DeliveryStatus;
-use App\Models\DeliveryOrderStatus;
+use App\Models\Enums\OrderStatus;
+use App\Models\Enums\DeliveryStatus;
+use App\Models\Enums\DeliveryOrderStatus;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 

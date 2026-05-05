@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Models\AccountEntryDirection;
-use App\Models\AccountEntryType;
-use App\Models\PaymentMethod;
+use App\Models\Enums\AccountEntryDirection;
+use App\Models\Enums\AccountEntryType;
+use App\Models\Enums\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreAccountEntryRequest extends FormRequest

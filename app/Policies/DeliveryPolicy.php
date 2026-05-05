@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use App\Models\Delivery;
 use App\Models\User;
-use App\Models\DeliveryStatus;
+use App\Models\Enums\DeliveryStatus;
 
 class DeliveryPolicy
 {

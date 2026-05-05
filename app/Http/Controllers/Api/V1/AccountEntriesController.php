@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\AccountEntry;
 use App\Models\AccountEntryPaymentMethod;
-use App\Models\AccountEntryValidationStatus;
+use App\Models\Enums\AccountEntryValidationStatus;
 use App\Models\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAccountEntryRequest;
 use App\Http\Requests\UpdateAccountEntryRequest;
 use App\Http\Resources\AccountEntryResource;
-use App\Models\PaymentMethod;
+use App\Models\Enums\PaymentMethod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

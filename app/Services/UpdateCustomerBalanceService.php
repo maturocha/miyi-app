@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\AccountEntryDirection;
+use App\Models\Enums\AccountEntryDirection;
 use Illuminate\Support\Facades\DB;
 
 class UpdateCustomerBalanceService

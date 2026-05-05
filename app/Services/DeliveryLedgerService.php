@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Models\AccountEntry;
-use App\Models\AccountEntryDirection;
+use App\Models\Enums\AccountEntryDirection;
 use App\Models\AccountEntryPaymentMethod;
-use App\Models\AccountEntryType;
-use App\Models\AccountEntryValidationStatus;
+use App\Models\Enums\AccountEntryType;
+use App\Models\Enums\AccountEntryValidationStatus;
 use App\Models\Customer;
 use App\Models\Delivery;
 use Illuminate\Support\Facades\DB;

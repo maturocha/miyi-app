@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\AccountEntry;
 use App\Models\Delivery;
-use App\Models\DeliveryStatus;
+use App\Models\Enums\DeliveryStatus;
 use App\Models\Order;
 use App\Services\DeliveryService;
 use App\Http\Controllers\Controller;

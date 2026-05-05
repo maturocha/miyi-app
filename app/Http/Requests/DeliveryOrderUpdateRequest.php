@@ -4,8 +4,8 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\Delivery;
-use App\Models\DeliveryOrderStatus;
-use App\Models\PaymentMethod;
+use App\Models\Enums\DeliveryOrderStatus;
+use App\Models\Enums\PaymentMethod;
 
 class DeliveryOrderUpdateRequest extends FormRequest
 {

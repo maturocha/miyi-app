@@ -6,7 +6,7 @@ globs:
   - "database/**/*.php"
 ---
 
-- Models live in `App\Models\` under `app/Models/`. Prefer `RelatedModel::class` in relations, not string FQCNs.
+- Eloquent models live in `App\Models\` under `app/Models/`. Enum-like classes (constants + `::all()`) live in `App\Models\Enums\` under `app/Models/Enums/`.
 - API controllers: `App\Http\Controllers\Api\V1\...`. Routes use string controller@action; `RouteServiceProvider` sets controller namespace.
 - Validation: `App\Http\Requests\...`. API resources: `App\Http\Resources\...`.
 - Shared logic: `App\Services\...`. Observers: `App\Observers\...` (register in `AppServiceProvider`).

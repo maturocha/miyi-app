@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\PaymentMethod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -19,7 +18,6 @@ class DeliveryOrderPayment extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'payment_method' => PaymentMethod::class,
     ];
 
     /**

@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Models\AccountEntry;
-use App\Models\AccountEntryValidationStatus;
+use App\Models\Enums\AccountEntryValidationStatus;
 use App\Services\UpdateCustomerBalanceService;
 
 class AccountEntryObserver
