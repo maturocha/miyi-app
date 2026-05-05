@@ -249,19 +249,34 @@ class OrdersController extends Controller
      */
     public function print(Order $order)
     {
-        $order = $order->load(['customer', 'details']);
-        $orderArr = $order->toArray();
+        // Eager-load everything the view needs (avoid N+1 / lazy-loads)
+        $order->loadMissing([
+            'user:id,name',
+            'customer:id,name,address,time_visit,cellphone,id_neighborhood,current_balance',
+            'customer.neighborhood:id,name,id_zone',
+            'customer.neighborhood.zone:id,name',
+            'details.product:id,name,type_product',
+        ]);
 
-        // Formatear la fecha directamente en el array (manteniendo compatibilidad)
-        $orderArr['date'] = \Carbon\Carbon::parse($order->date)->format('d/m/Y');
-        // Completar datos que espera la vista
-        $orderArr['customer'] = $order->customer->name ?? ($orderArr['customer'] ?? null);
-        $orderArr['time_visit'] = $order->customer->time_visit ?? ($orderArr['time_visit'] ?? null);
-        $orderArr['address'] = $order->customer->address ?? ($orderArr['address'] ?? null);
-        $orderArr['neighborhood'] = $order->customer->neighborhood->name ?? ($orderArr['neighborhood'] ?? null);
-        $orderArr['zone'] = $order->customer->neighborhood->zone->name ?? ($orderArr['zone'] ?? null);
-        $orderArr['cellphone'] = $order->customer->cellphone ?? ($orderArr['cellphone'] ?? null);
-        $orderArr['name'] = $order->user->name ?? ($orderArr['name'] ?? null);
+        $orderDate = Carbon::parse($order->date)->format('d/m/Y');
+
+        // Build only the keys the Blade template uses (keeps compatibility with $order['...'])
+        $orderArr = [
+            'id' => $order->id,
+            'date' => $orderDate,
+            'customer' => $order->customer->name ?? null,
+            'time_visit' => $order->customer->time_visit ?? null,
+            'address' => $order->customer->address ?? null,
+            'neighborhood' => \optional($order->customer->neighborhood)->name,
+            'zone' => \optional(\optional($order->customer->neighborhood)->zone)->name,
+            'cellphone' => $order->customer->cellphone ?? null,
+            'name' => \optional($order->user)->name,
+            'total_bruto' => $order->total_bruto,
+            'discount' => $order->discount,
+            'delivery_cost' => $order->delivery_cost,
+            'total' => $order->total,
+            'notes' => $order->notes ?? '',
+        ];
 
         $data = [
             'order' => $orderArr,
@@ -270,8 +285,11 @@ class OrdersController extends Controller
             'customer' => $order->customer ?? null,
         ];
 
-        $pdf = \PDF::loadView('templates.factura', $data);
-        $filename = 'pedido_' . $orderArr['customer'] . '_' . $orderArr['date'] . '.pdf';
+        $pdf = PDF::loadView('templates.factura', $data);
+
+        $customerForFilename = $orderArr['customer'] ?: 'cliente';
+        $safeCustomer = preg_replace('/[^A-Za-z0-9_\-]+/', '_', $customerForFilename);
+        $filename = 'pedido_' . $safeCustomer . '_' . $orderArr['date'] . '.pdf';
 
         return response($pdf->output(), 200)
             ->header('Content-Type', 'application/pdf')

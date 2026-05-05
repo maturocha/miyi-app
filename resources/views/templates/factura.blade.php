@@ -176,16 +176,20 @@ footer hr {
         </thead>
         <tbody>
         @foreach ($details as $detail)
-            
           <tr>
             <td class="service">{{ $detail->quantity }}</td>
-            <td class="desc">{{ $detail->name }}</td>
-            <td class="unit">${{ $detail->price_unit }} {{($detail->type_product == 'w') ? '/kg' : '' }}</td>
-            <td class="unit">{{($detail->type_product == 'w') ? $detail->weight .' kg' : '-' }}</td>
+            <td class="desc">
+              {{ $detail->product->name ?? '-' }}
+            </td>
+            <td class="unit">
+              ${{ $detail->price_unit }} {{ ($detail->type_product ?? $detail->product->type_product ?? '') == 'w' ? '/kg' : '' }}
+            </td>
+            <td class="unit">
+              {{ ($detail->product && $detail->product->type_product == 'w') ? $detail->weight . ' kg' : '-' }}
+            </td>
             <td class="qty">{{ $detail->discount }} %</td>
-            <td class="total">{{  number_format((float)$detail->price_final, 2) }}</td>
+            <td class="total">{{ number_format((float)$detail->price_final, 2) }}</td>
           </tr>
-            
         @endforeach
           <tr>
             <td colspan="5">SUBTOTAL</td>
