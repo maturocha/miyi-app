@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\AccountEntry;
-use App\AccountEntryDirection;
-use App\AccountEntryPaymentMethod;
-use App\AccountEntryType;
-use App\AccountEntryValidationStatus;
-use App\Customer;
-use App\Delivery;
+use App\Models\AccountEntry;
+use App\Models\AccountEntryDirection;
+use App\Models\AccountEntryPaymentMethod;
+use App\Models\AccountEntryType;
+use App\Models\AccountEntryValidationStatus;
+use App\Models\Customer;
+use App\Models\Delivery;
 use Illuminate\Support\Facades\DB;
 
 /**

@@ -5,7 +5,8 @@ services:
     working_dir: /var/www/html
     volumes:
       - .:/var/www/html
-      - /var/www/html/vendor
+      # Named volume so `composer install` persists across `docker compose run` (anonymous volumes reset per run)
+      - miyi_vendor:/var/www/html/vendor
     networks:
       - laravel
     healthcheck:
@@ -57,3 +58,4 @@ networks:
 
 volumes:
   dbdata:
+  miyi_vendor:

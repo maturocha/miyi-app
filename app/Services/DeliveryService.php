@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Delivery;
-use App\Order;
-use App\DeliveryOrder;
-use App\OrderStatus;
-use App\DeliveryStatus;
-use App\DeliveryOrderStatus;
+use App\Models\Delivery;
+use App\Models\Order;
+use App\Models\DeliveryOrder;
+use App\Models\OrderStatus;
+use App\Models\DeliveryStatus;
+use App\Models\DeliveryOrderStatus;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 

@@ -3,9 +3,9 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Delivery;
-use App\DeliveryOrderStatus;
-use App\PaymentMethod;
+use App\Models\Delivery;
+use App\Models\DeliveryOrderStatus;
+use App\Models\PaymentMethod;
 
 class DeliveryOrderUpdateRequest extends FormRequest
 {

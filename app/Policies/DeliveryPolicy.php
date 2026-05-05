@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use App\Delivery;
-use App\User;
-use App\DeliveryStatus;
+use App\Models\Delivery;
+use App\Models\User;
+use App\Models\DeliveryStatus;
 
 class DeliveryPolicy
 {

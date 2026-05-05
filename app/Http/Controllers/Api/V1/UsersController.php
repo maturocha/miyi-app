@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\User;
+use App\Models\User;
 use App\Http\Requests\UserStoreRequest;
 use App\Http\Requests\UserUpdateRequest;
 use App\Http\Controllers\Controller;
@@ -42,7 +42,7 @@ class UsersController extends Controller
      * Show a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\User $user
+     * @param App\Models\User $user
      *
      * @return Illuminate\Http\JsonResponse
      */
@@ -55,7 +55,7 @@ class UsersController extends Controller
      * Update a resource.
      *
      * @param App\Http\Requests\UserUpdateRequest $request
-     * @param App\User $user
+     * @param App\Models\User $user
      *
      * @return Illuminate\Http\JsonResponse
      */
@@ -77,7 +77,7 @@ class UsersController extends Controller
      * Destroy a resource.
      *
      * @param Illuminate\Http\Request $request
-     * @param App\User $user
+     * @param App\Models\User $user
      *
      * @return Illuminate\Http\JsonResponse
      */

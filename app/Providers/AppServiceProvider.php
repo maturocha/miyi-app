@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
-use App\AccountEntry;
-use App\Delivery;
+use App\Models\AccountEntry;
+use App\Models\Delivery;
 use App\Observers\AccountEntryObserver;
 use App\Observers\DeliveryObserver;
 

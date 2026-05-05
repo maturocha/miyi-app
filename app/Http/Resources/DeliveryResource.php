@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Delivery */
+/** @mixin \App\Models\Delivery */
 
 class DeliveryResource extends JsonResource
 {

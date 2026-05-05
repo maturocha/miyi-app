@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\AccountEntry;
-use App\AccountEntryPaymentMethod;
-use App\AccountEntryValidationStatus;
-use App\Customer;
+use App\Models\AccountEntry;
+use App\Models\AccountEntryPaymentMethod;
+use App\Models\AccountEntryValidationStatus;
+use App\Models\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAccountEntryRequest;
 use App\Http\Requests\UpdateAccountEntryRequest;
 use App\Http\Resources\AccountEntryResource;
-use App\PaymentMethod;
+use App\Models\PaymentMethod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

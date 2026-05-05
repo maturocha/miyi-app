@@ -1,56 +1,63 @@
-# Usa la imagen oficial de PHP con FPM
-FROM php:7.3-fpm
+FROM php:7.4.7-fpm
 
-# Instalar dependencias necesarias
+# php:7.4.7-fpm is Debian buster — official mirrors moved to archive.debian.org
+RUN sed -i 's|deb.debian.org|archive.debian.org|g; s|security.debian.org|archive.debian.org|g; /buster-updates/d' /etc/apt/sources.list
+
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    libcurl4-openssl-dev \
     git \
     unzip \
-    && docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
-    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql \
+    curl \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+        bcmath \
+        exif \
+        gd \
+        mbstring \
+        opcache \
+        pcntl \
+        pdo \
+        pdo_mysql \
+        zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Xdebug con versión específica compatible con PHP 7.3
-RUN pecl install xdebug-3.1.6 && \
-    docker-php-ext-enable xdebug
+RUN pecl install xdebug-3.1.6 \
+    && docker-php-ext-enable xdebug \
+    && { \
+    echo "xdebug.mode=develop,debug"; \
+    echo "xdebug.idekey=docker"; \
+    echo "xdebug.start_with_request=yes"; \
+    echo "xdebug.client_port=9003"; \
+    echo "xdebug.client_host=host.docker.internal"; \
+    echo "xdebug.log=/dev/stdout"; \
+    echo "xdebug.log_level=0"; \
+    } > /usr/local/etc/php/conf.d/50-xdebug.ini
 
-# Configurar Xdebug
-RUN echo "zend_extension=xdebug.so" >> /usr/local/etc/php/conf.d/50-xdebug.ini \
-    && echo "xdebug.mode=develop,debug" >> /usr/local/etc/php/conf.d/50-xdebug.ini \
-    && echo "xdebug.idekey=docker" >> /usr/local/etc/php/conf.d/50-xdebug.ini \
-    && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/50-xdebug.ini \
-    && echo "xdebug.log=/dev/stdout" >> /usr/local/etc/php/conf.d/50-xdebug.ini \
-    && echo "xdebug.log_level=0" >> /usr/local/etc/php/conf.d/50-xdebug.ini \
-    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/50-xdebug.ini \
-    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/50-xdebug.ini
+COPY --from=composer:2.2 /usr/bin/composer /usr/bin/composer
 
-# Instalar Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN curl -fsSL -o /usr/local/bin/php-fpm-healthcheck \
+        https://raw.githubusercontent.com/renatomefi/php-fpm-healthcheck/v0.5.0/php-fpm-healthcheck \
+    && chmod +x /usr/local/bin/php-fpm-healthcheck
 
-# Crear directorios necesarios
-RUN mkdir -p /var/www/html/storage/logs /var/www/html/storage/framework/cache \
+RUN mkdir -p /var/www/html/storage/logs \
+    /var/www/html/storage/framework/cache \
     /var/www/html/storage/framework/sessions \
     /var/www/html/storage/framework/views \
     /var/www/html/bootstrap/cache
 
-# Copiar los archivos de la aplicación al contenedor
 COPY --chown=www-data:www-data . /var/www/html/
 
-# Establecer el directorio de trabajo
 WORKDIR /var/www/html
 
-# Instalar dependencias con Composer
-RUN composer install --no-interaction --no-plugins --no-scripts
-
-# Asegurar que www-data tenga permisos sobre el directorio storage
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Exponer el puerto 9000 para el contenedor PHP
 EXPOSE 9000
 
-# Comando por defecto al iniciar el contenedor
 CMD ["php-fpm"]

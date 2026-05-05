@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers\Api\V1;
 
-use App\Image;
+use App\Models\Image;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use App\Traits\ImageTraitController;

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Order;
-use App\Order_details;
-use App\OrderStatus;
+use App\Models\Order;
+use App\Models\Order_details;
+use App\Models\OrderStatus;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;

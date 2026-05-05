@@ -19,8 +19,6 @@
             <meta name="sw-filepath" content="/service-worker.js">
         @endif
 
-        <meta name="TELESCOPE_ENABLED" content="{{ config('telescope.enabled') }}">
-
         <!-- Title -->
         <title>{{ config('app.name') }}</title>
 

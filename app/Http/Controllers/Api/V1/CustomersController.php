@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\AccountEntry;
-use App\Customer;
+use App\Models\AccountEntry;
+use App\Models\Customer;
 use App\Http\Resources\AccountEntryResource;
 use App\Http\Resources\CustomerResource;
 use Illuminate\Support\Facades\Auth;

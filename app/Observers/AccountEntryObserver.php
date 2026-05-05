@@ -2,8 +2,8 @@
 
 namespace App\Observers;
 
-use App\AccountEntry;
-use App\AccountEntryValidationStatus;
+use App\Models\AccountEntry;
+use App\Models\AccountEntryValidationStatus;
 use App\Services\UpdateCustomerBalanceService;
 
 class AccountEntryObserver

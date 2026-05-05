@@ -2,12 +2,12 @@
 
 namespace App\Policies;
 
-use App\AccountEntry;
-use App\AccountEntryValidationStatus;
-use App\Delivery;
-use App\DeliveryOrder;
-use App\DeliveryStatus;
-use App\User;
+use App\Models\AccountEntry;
+use App\Models\AccountEntryValidationStatus;
+use App\Models\Delivery;
+use App\Models\DeliveryOrder;
+use App\Models\DeliveryStatus;
+use App\Models\User;
 
 class AccountEntryPolicy
 {

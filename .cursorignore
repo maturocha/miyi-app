@@ -1,0 +1,15 @@
+vendor/
+node_modules/
+storage/logs/
+storage/framework/
+storage/app/public/
+public/js/*.bundle.*.js
+public/js/*.bundle.*.js.map
+public/css/*.bundle.*.css
+public/mix-manifest.json
+.env
+.env.testing
+composer.lock
+package-lock.json
+*.log
+.DS_Store
