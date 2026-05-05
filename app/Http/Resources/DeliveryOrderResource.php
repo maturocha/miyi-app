@@ -28,6 +28,7 @@ class DeliveryOrderResource extends JsonResource
                         'name' => $this->order->customer->name,
                         'address' => $this->order->customer->address,
                         'cellphone' => $this->order->customer->cellphone,
+                        'current_balance' => (float) ($this->order->customer->current_balance ?? 0),
                     ] : null,
                 ] : null;
             }),

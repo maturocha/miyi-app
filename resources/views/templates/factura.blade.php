@@ -208,6 +208,9 @@ footer hr {
           </tr>
         </tbody>
       </table>
+      <div>
+        Saldo actual: ${{ number_format((float) $balance, 2) }}
+      </div>
       <div id="notices">
         <div>Notas:</div>
         <div class="notice">{!! trim(nl2br($order['notes'])) !!}</div>

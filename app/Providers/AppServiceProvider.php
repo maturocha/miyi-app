@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\AccountEntry;
 use App\Delivery;
+use App\Observers\AccountEntryObserver;
 use App\Observers\DeliveryObserver;
 
 use Illuminate\Support\Facades\Schema;
@@ -18,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         Schema::defaultStringLength(191);
+        AccountEntry::observe(AccountEntryObserver::class);
         Delivery::observe(DeliveryObserver::class);
     }
 

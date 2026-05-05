@@ -27,6 +27,7 @@ class CustomerResource extends JsonResource
             'cellphone' => $this->cellphone,
             'telephone' => $this->telephone,
             'type' => $this->type,
+            'current_balance' => (float) ($this->current_balance ?? 0),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'orders' => $this->resource->orders()

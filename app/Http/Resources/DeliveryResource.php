@@ -4,6 +4,8 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin \App\Delivery */
+
 class DeliveryResource extends JsonResource
 {
     /**
@@ -45,6 +47,7 @@ class DeliveryResource extends JsonResource
                     'expenses' => (float) ($this->expenses_amount ?? 0),
                     'net' => (float) $netAmount,
                 ],
+                'account_entries' => AccountEntryResource::collection($this->whenLoaded('accountEntries')),
                 'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
                 'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,
             ]

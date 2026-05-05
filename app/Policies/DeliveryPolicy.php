@@ -8,6 +8,12 @@ use App\DeliveryStatus;
 
 class DeliveryPolicy
 {
+
+    /** Admin, administración, rol de gestión operativa (reparto / farmacia). */
+    protected static function privilegedRoles(): array
+    {
+        return [1, 3, 4];
+    }
     /**
      * Determine if the user can view any deliveries.
      */
@@ -30,7 +36,7 @@ class DeliveryPolicy
     public function create(User $user)
     {
         // Solo admin (role_id = 1) o administración (role_id = 3)
-        return in_array($user->role_id, [1, 3]);
+        return in_array($user->role_id, self::privilegedRoles());
     }
 
     /**
@@ -39,7 +45,7 @@ class DeliveryPolicy
     public function update(User $user, Delivery $delivery)
     {
         // Solo admin o administración, y solo si el reparto NO ha sido iniciado todavía
-        if (!in_array($user->role_id, [1, 3])) {
+        if (!in_array($user->role_id, self::privilegedRoles())) {
             return false;
         }
 
@@ -65,7 +71,7 @@ class DeliveryPolicy
             return true;
         }
         // Admin/administración puede iniciar siempre
-        return in_array($user->role_id, [1, 3]);
+        return in_array($user->role_id, self::privilegedRoles());
     }
 
     /**
@@ -78,7 +84,7 @@ class DeliveryPolicy
             return true;
         }
         // Admin/administración puede finalizar desde cualquier estado
-        return in_array($user->role_id, [1, 3]);
+        return in_array($user->role_id, self::privilegedRoles());
     }
 
     /**
@@ -87,7 +93,7 @@ class DeliveryPolicy
     public function close(User $user, Delivery $delivery)
     {
         // Solo admin o administración, y solo desde FINISHED
-        if (!in_array($user->role_id, [1, 3])) {
+        if (!in_array($user->role_id, self::privilegedRoles())) {
             return false;
         }
         return $delivery->status === DeliveryStatus::FINISHED;
@@ -99,7 +105,7 @@ class DeliveryPolicy
     public function addOrders(User $user, Delivery $delivery)
     {
         // Solo admin o administración, y solo si status == NOT_STARTED
-        if (!in_array($user->role_id, [1, 3])) {
+        if (!in_array($user->role_id, self::privilegedRoles())) {
             return false;
         }
         return $delivery->status === DeliveryStatus::NOT_STARTED;
@@ -115,7 +121,7 @@ class DeliveryPolicy
             return true;
         }
         // Admin/administración puede actualizar siempre
-        return in_array($user->role_id, [1, 3]);
+        return in_array($user->role_id, self::privilegedRoles());
     }
 
     /**
@@ -128,6 +134,6 @@ class DeliveryPolicy
             return true;
         }
         // Admin/administración puede actualizar siempre
-        return in_array($user->role_id, [1, 3]);
+        return in_array($user->role_id, self::privilegedRoles());
     }
 }

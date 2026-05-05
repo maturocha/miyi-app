@@ -240,16 +240,39 @@ class OrdersController extends Controller
         }
     }
 
-    public function print($id) {
-        $data = [];
+    /**
+     * Imprime el comprobante de un pedido.
+     * Puede recibir un id numérico o un modelo Order.
+     *
+     * @param mixed $orderOrId
+     * @return \Illuminate\Http\Response
+     */
+    public function print(Order $order)
+    {
+        $order = $order->load(['customer', 'details']);
+        $orderArr = $order->toArray();
 
-        $order = Order::getByID($id); 
-        $order['date'] = Carbon::parse($order['date'])->format('d/m/Y');
-        $data['order'] = $order;
-        $data['details'] = Order::getDetailsByID($id);
-        $pdf = PDF::loadView('templates.factura', $data);
-        $filename = 'pedido_'.$order['customer'].'_'.$order['date'].'.pdf';
-        
+        // Formatear la fecha directamente en el array (manteniendo compatibilidad)
+        $orderArr['date'] = \Carbon\Carbon::parse($order->date)->format('d/m/Y');
+        // Completar datos que espera la vista
+        $orderArr['customer'] = $order->customer->name ?? ($orderArr['customer'] ?? null);
+        $orderArr['time_visit'] = $order->customer->time_visit ?? ($orderArr['time_visit'] ?? null);
+        $orderArr['address'] = $order->customer->address ?? ($orderArr['address'] ?? null);
+        $orderArr['neighborhood'] = $order->customer->neighborhood->name ?? ($orderArr['neighborhood'] ?? null);
+        $orderArr['zone'] = $order->customer->neighborhood->zone->name ?? ($orderArr['zone'] ?? null);
+        $orderArr['cellphone'] = $order->customer->cellphone ?? ($orderArr['cellphone'] ?? null);
+        $orderArr['name'] = $order->user->name ?? ($orderArr['name'] ?? null);
+
+        $data = [
+            'order' => $orderArr,
+            'details' => $order->details,
+            'balance' => $order->customer->current_balance ?? 0,
+            'customer' => $order->customer ?? null,
+        ];
+
+        $pdf = \PDF::loadView('templates.factura', $data);
+        $filename = 'pedido_' . $orderArr['customer'] . '_' . $orderArr['date'] . '.pdf';
+
         return response($pdf->output(), 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'inline; filename="' . $filename . '"');
