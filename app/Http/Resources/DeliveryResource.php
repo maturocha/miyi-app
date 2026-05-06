@@ -2,7 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\AccountEntry;
+use App\Models\Enums\AccountEntryType;
+use App\Models\Enums\PaymentMethod;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
 /** @mixin \App\Models\Delivery */
 
@@ -16,10 +20,20 @@ class DeliveryResource extends JsonResource
      */
     public function toArray($request)
     {
-        $totalCollected = $this->relationLoaded('deliveryOrders')
-            ? $this->deliveryOrders->sum('collected_amount')
-            : ($this->orders()->sum('delivery_orders.collected_amount') ?? 0);
+        $orderCollected = $this->relationLoaded('deliveryOrders')
+            ? (float) $this->deliveryOrders->sum('collected_amount')
+            : (float) ($this->orders()->sum('delivery_orders.collected_amount') ?? 0);
+
+        $offRouteCollected = (float) AccountEntry::query()
+            ->where('source_type', 'delivery')
+            ->where('source_id', $this->id)
+            ->where('type', AccountEntryType::PAYMENT)
+            ->sum('amount');
+
+        $totalCollected = $orderCollected + $offRouteCollected;
         $netAmount = $totalCollected - ($this->expenses_amount ?? 0);
+
+        $cashCollected = $this->getCashCollectedFromOrders() + $this->computeCashCollectedOffRoute();
 
         return [
             'data' => [
@@ -44,6 +58,7 @@ class DeliveryResource extends JsonResource
                 }),
                 'totals' => [
                     'collected' => (float) $totalCollected,
+                    'cash_collected' => (float) $cashCollected,
                     'expenses' => (float) ($this->expenses_amount ?? 0),
                     'net' => (float) $netAmount,
                 ],
@@ -52,5 +67,66 @@ class DeliveryResource extends JsonResource
                 'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,
             ]
         ];
+    }
+
+    /**
+     * Efectivo cobrado vía entregas de pedidos (líneas delivery_order_payments o monto único legacy en delivery_orders).
+     */
+    protected function getCashCollectedFromOrders(): float
+    {
+        if ($this->relationLoaded('deliveryOrders')) {
+            $cash = 0.0;
+            foreach ($this->deliveryOrders as $do) {
+                if ($do->relationLoaded('payments') && $do->payments && $do->payments->isNotEmpty()) {
+                    foreach ($do->payments as $p) {
+                        if (($p->payment_method ?? '') === PaymentMethod::CASH) {
+                            $cash += (float) $p->amount;
+                        }
+                    }
+                } elseif (($do->payment_method ?? '') === PaymentMethod::CASH) {
+                    $cash += (float) ($do->collected_amount ?? 0);
+                }
+            }
+
+            return $cash;
+        }
+
+        $deliveryOrderIds = DB::table('delivery_orders')
+            ->where('delivery_id', $this->id)
+            ->pluck('id');
+        if ($deliveryOrderIds->isEmpty()) {
+            return 0.0;
+        }
+        $ids = $deliveryOrderIds->all();
+        $cashFromLines = (float) DB::table('delivery_order_payments')
+            ->whereIn('delivery_order_id', $ids)
+            ->where('payment_method', PaymentMethod::CASH)
+            ->sum('amount');
+
+        $cashLegacy = (float) DB::table('delivery_orders as dord')
+            ->where('dord.delivery_id', $this->id)
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('delivery_order_payments as dop')
+                    ->whereColumn('dop.delivery_order_id', 'dord.id');
+            })
+            ->where('dord.payment_method', PaymentMethod::CASH)
+            ->sum('dord.collected_amount');
+
+        return $cashFromLines + $cashLegacy;
+    }
+
+    /**
+     * Efectivo de cobros registrados con origen reparto (fuera de una entrega puntual).
+     */
+    protected function computeCashCollectedOffRoute(): float
+    {
+        return (float) DB::table('account_entry_payment_methods as apm')
+            ->join('account_entries as ae', 'ae.id', '=', 'apm.account_entry_id')
+            ->where('ae.source_type', 'delivery')
+            ->where('ae.source_id', $this->id)
+            ->where('ae.type', AccountEntryType::PAYMENT)
+            ->where('apm.payment_method', PaymentMethod::CASH)
+            ->sum('apm.amount');
     }
 }
