@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Product;
+use App\Models\Product;
 
 use App\Http\Controllers\Api\V1\ImageController;
 use Illuminate\Support\Str;

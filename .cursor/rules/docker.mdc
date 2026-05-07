@@ -1,0 +1,14 @@
+---
+description: Docker / runtime versions for miyi-app
+globs:
+  - "Dockerfile"
+  - "docker-compose*.yml"
+  - "docker/**/*"
+---
+
+- Base image is pinned to **`php:7.4.7-fpm`**. Do not bump PHP in Dockerfile without a coordinated Laravel/dependency upgrade.
+- Composer is copied from **`composer:2.2`** (LTS compatible with PHP 7.2+).
+- Xdebug is pinned to **3.1.6** (compatible with PHP 7.4).
+- Required PHP extensions in the image: `pdo_mysql`, `zip`, `gd`, `mbstring`, `bcmath`, `exif`, `opcache`, `pcntl` (plus defaults).
+- `docker-compose.local.yml` uses **MariaDB 10.5**; app mounts the project at `/var/www/html` and uses a **named volume** `miyi_vendor` for `/var/www/html/vendor` so dependencies persist across `docker compose run`.
+- If `apt-get update` fails on old Debian, switch APT sources to `archive.debian.org` (see commented line in Dockerfile).

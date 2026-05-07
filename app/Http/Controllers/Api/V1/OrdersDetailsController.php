@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Order;
-use App\Order_details;
-use App\Promotion;
+use App\Models\Order;
+use App\Models\Order_details;
+use App\Models\Promotion;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

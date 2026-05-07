@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 class AccountController extends Controller
 {
     /**
-     * @var App\User
+     * @var App\Models\User
      */
     protected $user;
 

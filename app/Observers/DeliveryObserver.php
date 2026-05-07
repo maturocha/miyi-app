@@ -2,11 +2,11 @@
 
 namespace App\Observers;
 
-use App\AccountEntry;
-use App\Delivery;
-use App\DeliveryStatus;
-use App\Order;
-use App\OrderStatus;
+use App\Models\AccountEntry;
+use App\Models\Delivery;
+use App\Models\Enums\DeliveryStatus;
+use App\Models\Order;
+use App\Models\Enums\OrderStatus;
 use App\Services\DeliveryLedgerService;
 
 class DeliveryObserver

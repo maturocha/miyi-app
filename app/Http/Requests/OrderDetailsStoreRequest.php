@@ -3,9 +3,9 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Order_details;
-use App\Promotion;
-use App\Product;
+use App\Models\Order_details;
+use App\Models\Promotion;
+use App\Models\Product;
 
 class OrderDetailsStoreRequest extends FormRequest
 {

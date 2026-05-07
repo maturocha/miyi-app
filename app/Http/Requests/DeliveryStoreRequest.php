@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\OrderStatus;
+use App\Models\Enums\OrderStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +15,7 @@ class DeliveryStoreRequest extends FormRequest
      */
     public function authorize()
     {
-        return $this->user()->can('create', \App\Delivery::class);
+        return $this->user()->can('create', \App\Models\Delivery::class);
     }
 
     /**

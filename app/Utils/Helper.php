@@ -1,6 +1,6 @@
 <?php
 
-use App\User;
+use App\Models\User;
 
 if (! function_exists('_asset')) {
     /**
@@ -40,7 +40,7 @@ if (! function_exists('_test_user')) {
     /**
      * Login and get the then authenticated user.
      *
-     * @return App\User
+     * @return App\Models\User
      */
     function _test_user()
     {
@@ -54,7 +54,7 @@ if (! function_exists('_clean_string')) {
     /**
      * Login and get the then authenticated user.
      *
-     * @return App\User
+     * @return App\Models\User
      */
     function _clean_string($string)
     {

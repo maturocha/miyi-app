@@ -2,8 +2,8 @@
 
 namespace App\Helpers;
 
-use App\Delivery;
-use App\DeliveryOrder;
+use App\Models\Delivery;
+use App\Models\DeliveryOrder;
 
 class AccountEntrySourceHelper
 {

@@ -3,8 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\DeliveryStatus;
-use App\OrderStatus;
+use App\Models\Enums\DeliveryStatus;
+use App\Models\Enums\OrderStatus;
 use Illuminate\Validation\Rule;
 
 class DeliveryUpdateRequest extends FormRequest

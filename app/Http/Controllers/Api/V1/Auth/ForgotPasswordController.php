@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Auth;
 
-use App\User;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +46,7 @@ class ForgotPasswordController extends Controller
     /**
      * Store the reset token.
      *
-     * @param App\User
+     * @param App\Models\User
      * @param string
      *
      * @return bool

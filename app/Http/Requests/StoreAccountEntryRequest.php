@@ -2,16 +2,16 @@
 
 namespace App\Http\Requests;
 
-use App\AccountEntryDirection;
-use App\AccountEntryType;
-use App\PaymentMethod;
+use App\Models\Enums\AccountEntryDirection;
+use App\Models\Enums\AccountEntryType;
+use App\Models\Enums\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreAccountEntryRequest extends FormRequest
 {
     public function authorize()
     {
-        return $this->user()->can('create', \App\AccountEntry::class);
+        return $this->user()->can('create', \App\Models\AccountEntry::class);
     }
 
     public function rules()

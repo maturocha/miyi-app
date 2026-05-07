@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Zone;
-use App\Order;
-use App\Product;
-use App\Category;
-use App\Customer;
+use App\Models\Zone;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\Category;
+use App\Models\Customer;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;

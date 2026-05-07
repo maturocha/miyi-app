@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Auth;
 
-use App\User;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -124,7 +124,7 @@ class SessionsController extends Controller
      * Save Auth Token.
      *
      * @param string $token
-     * @param App\User $user
+     * @param App\Models\User $user
      *
      * @return bool
      */

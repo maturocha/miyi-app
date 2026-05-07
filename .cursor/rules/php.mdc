@@ -1,0 +1,10 @@
+---
+description: PHP 7.4.7 compatibility rules
+globs:
+  - "**/*.php"
+---
+
+- Target runtime: **PHP 7.4.7** (Composer `config.platform.php` pins the same).
+- **Forbidden** (PHP 8+): `match`, named arguments, constructor property promotion, union types, `mixed`/`never` as types, `readonly`, native `#[...]` attributes, nullsafe operator `?->`, `str_contains` / `str_starts_with` / `str_ends_with` (use `strpos`/`substr` patterns).
+- **Allowed** (PHP 7.4): typed properties, arrow functions `fn()`, null coalescing assignment `??=`, spread in arrays.
+- Prefer explicit, boring code over polyfills unless a package already provides them.

@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\User;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use App\Notifications\PasswordReset;
 use Illuminate\Queue\SerializesModels;
@@ -24,7 +24,7 @@ class ProcessPasswordResetRequest implements ShouldQueue
     /**
      * User instance
      *
-     * @var App\User
+     * @var App\Models\User
      */
     protected $user;
 

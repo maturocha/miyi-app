@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Order_details;
+use App\Models\Order_details;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 

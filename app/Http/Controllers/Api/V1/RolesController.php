@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Role;
+use App\Models\Role;
 use DB;
 
 use Illuminate\Support\Facades\Auth;

@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\OrderStatus;
+use App\Models\Enums\OrderStatus;
 use Illuminate\Foundation\Http\FormRequest;
 
 class OrderUpdateRequest extends FormRequest
