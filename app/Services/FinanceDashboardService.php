@@ -329,12 +329,10 @@ class FinanceDashboardService
             $q->where('o.id_customer', (int) $filters['customer_id']);
         }
 
-        // Optional owner filter: only orders linked to deliveries owned by user
+        // Optional owner filter: align with Recaudaciones table semantics (orders.id_user)
         if (!empty($filters['owner_user_id'])) {
             $ownerId = (int) $filters['owner_user_id'];
-            $q->join('delivery_orders as do', 'do.order_id', '=', 'o.id')
-              ->join('deliveries as d', 'd.id', '=', 'do.delivery_id')
-              ->where('d.owner_user_id', $ownerId);
+            $q->where('o.id_user', $ownerId);
         }
 
         return $q;
@@ -387,18 +385,30 @@ class FinanceDashboardService
             $q->where('ae.validation_status', $filters['collection_status']);
         }
 
-        // Map entries to delivery for owner filter. Manual entries won't match.
+        // Optional owner filter: align with orders.id_user (best-effort).
+        // Notes:
+        // - For delivery_orders entries: ae.source_id points to delivery_orders.id
+        // - For delivery entries: ae.source_id points to deliveries.id (we map to its delivery_orders)
+        // - Manual entries without mapping are excluded when owner filter is present.
         if (!empty($filters['owner_user_id'])) {
             $ownerId = (int) $filters['owner_user_id'];
-            $q->leftJoin('delivery_orders as do_map', function ($join) {
-                $join->on('do_map.id', '=', 'ae.source_id')
-                    ->where('ae.source_type', '=', 'delivery_orders');
+            $q->where(function ($w) use ($ownerId) {
+                $w->whereExists(function ($sub) use ($ownerId) {
+                    $sub->select(DB::raw(1))
+                        ->from('delivery_orders as do1')
+                        ->join('orders as o1', 'o1.id', '=', 'do1.order_id')
+                        ->whereColumn('do1.id', 'ae.source_id')
+                        ->where('ae.source_type', '=', 'delivery_orders')
+                        ->where('o1.id_user', '=', $ownerId);
+                })->orWhereExists(function ($sub) use ($ownerId) {
+                    $sub->select(DB::raw(1))
+                        ->from('delivery_orders as do2')
+                        ->join('orders as o2', 'o2.id', '=', 'do2.order_id')
+                        ->whereColumn('do2.delivery_id', 'ae.source_id')
+                        ->where('ae.source_type', '=', 'delivery')
+                        ->where('o2.id_user', '=', $ownerId);
+                });
             });
-            $q->leftJoin('deliveries as d_map', function ($join) {
-                // delivery entries: source_id=delivery.id
-                $join->on('d_map.id', '=', DB::raw("CASE WHEN ae.source_type='delivery' THEN ae.source_id ELSE do_map.delivery_id END"));
-            });
-            $q->where('d_map.owner_user_id', $ownerId);
         }
 
         if (!empty($filters['payment_method'])) {
@@ -488,14 +498,23 @@ class FinanceDashboardService
         }
         if (!empty($filters['owner_user_id'])) {
             $ownerId = (int) $filters['owner_user_id'];
-            $q->leftJoin('delivery_orders as do_map', function ($join) {
-                $join->on('do_map.id', '=', 'ae.source_id')
-                    ->where('ae.source_type', '=', 'delivery_orders');
+            $q->where(function ($w) use ($ownerId) {
+                $w->whereExists(function ($sub) use ($ownerId) {
+                    $sub->select(DB::raw(1))
+                        ->from('delivery_orders as do1')
+                        ->join('orders as o1', 'o1.id', '=', 'do1.order_id')
+                        ->whereColumn('do1.id', 'ae.source_id')
+                        ->where('ae.source_type', '=', 'delivery_orders')
+                        ->where('o1.id_user', '=', $ownerId);
+                })->orWhereExists(function ($sub) use ($ownerId) {
+                    $sub->select(DB::raw(1))
+                        ->from('delivery_orders as do2')
+                        ->join('orders as o2', 'o2.id', '=', 'do2.order_id')
+                        ->whereColumn('do2.delivery_id', 'ae.source_id')
+                        ->where('ae.source_type', '=', 'delivery')
+                        ->where('o2.id_user', '=', $ownerId);
+                });
             });
-            $q->leftJoin('deliveries as d_map', function ($join) {
-                $join->on('d_map.id', '=', DB::raw("CASE WHEN ae.source_type='delivery' THEN ae.source_id ELSE do_map.delivery_id END"));
-            });
-            $q->where('d_map.owner_user_id', $ownerId);
         }
 
         $rows = $q
