@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Enums\AccountEntryType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Delivery extends Model
 {
@@ -101,5 +103,125 @@ class Delivery extends Model
             'expenses' => $expenses,
             'net' => $collected - $expenses,
         ];
+    }
+
+    /**
+     * Cobrado por método de pago desde pedidos del reparto.
+     *
+     * - Usa `delivery_order_payments` cuando existe (multi-método).
+     * - Fallback legacy: para `delivery_orders` sin filas en `delivery_order_payments`,
+     *   agrupa por `delivery_orders.payment_method` y suma `delivery_orders.collected_amount`.
+     *
+     * @return array<string,float>
+     */
+    public function collectedByPaymentMethodFromOrders(): array
+    {
+        $deliveryOrderIds = DB::table('delivery_orders')
+            ->where('delivery_id', $this->id)
+            ->pluck('id');
+
+        if ($deliveryOrderIds->isEmpty()) {
+            return [];
+        }
+
+        $ids = $deliveryOrderIds->all();
+
+        $rowsFromLines = DB::table('delivery_order_payments')
+            ->select('payment_method', DB::raw('SUM(amount) as total'))
+            ->whereIn('delivery_order_id', $ids)
+            ->groupBy('payment_method')
+            ->get();
+
+        $byMethod = [];
+        foreach ($rowsFromLines as $row) {
+            $method = (string) ($row->payment_method ?? '');
+            $amount = (float) ($row->total ?? 0);
+            if ($method === '' || $amount <= 0) {
+                continue;
+            }
+            $byMethod[$method] = ($byMethod[$method] ?? 0) + $amount;
+        }
+
+        $rowsLegacy = DB::table('delivery_orders as dord')
+            ->select('dord.payment_method', DB::raw('SUM(dord.collected_amount) as total'))
+            ->where('dord.delivery_id', $this->id)
+            ->whereNotNull('dord.payment_method')
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('delivery_order_payments as dop')
+                    ->whereColumn('dop.delivery_order_id', 'dord.id');
+            })
+            ->groupBy('dord.payment_method')
+            ->get();
+
+        foreach ($rowsLegacy as $row) {
+            $method = (string) ($row->payment_method ?? '');
+            $amount = (float) ($row->total ?? 0);
+            if ($method === '' || $amount <= 0) {
+                continue;
+            }
+            $byMethod[$method] = ($byMethod[$method] ?? 0) + $amount;
+        }
+
+        return $byMethod;
+    }
+
+    /**
+     * Cobrado por método de pago pero de cobros fuera del reparto.
+     *
+     * @return array<string,float>
+     */
+    public function collectedByPaymentMethodOffRoute(): array
+    {
+        $rows = DB::table('account_entry_payment_methods as apm')
+            ->join('account_entries as ae', 'ae.id', '=', 'apm.account_entry_id')
+            ->select('apm.payment_method', DB::raw('SUM(apm.amount) as total'))
+            ->where('ae.source_type', 'delivery')
+            ->where('ae.source_id', $this->id)
+            ->where('ae.type', AccountEntryType::PAYMENT)
+            ->groupBy('apm.payment_method')
+            ->get();
+
+        $byMethod = [];
+        foreach ($rows as $row) {
+            $method = (string) ($row->payment_method ?? '');
+            $amount = (float) ($row->total ?? 0);
+            if ($method === '' || $amount <= 0) {
+                continue;
+            }
+            $byMethod[$method] = ($byMethod[$method] ?? 0) + $amount;
+        }
+
+        return $byMethod;
+    }
+
+    /**
+     * Cobrado combinado por método (orders + off-route).
+     *
+     * @return array<string,float>
+     */
+    public function collectedByPaymentMethod(): array
+    {
+        $combined = [];
+
+        foreach ($this->collectedByPaymentMethodFromOrders() as $method => $amount) {
+            if ($amount > 0) {
+                $combined[$method] = ($combined[$method] ?? 0) + (float) $amount;
+            }
+        }
+
+        foreach ($this->collectedByPaymentMethodOffRoute() as $method => $amount) {
+            if ($amount > 0) {
+                $combined[$method] = ($combined[$method] ?? 0) + (float) $amount;
+            }
+        }
+
+        foreach ($combined as $method => $amount) {
+            if ($amount <= 0) {
+                unset($combined[$method]);
+            }
+        }
+
+        return $combined;
     }
 }
