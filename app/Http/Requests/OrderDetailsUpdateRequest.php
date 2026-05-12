@@ -6,6 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use App\Models\Order_details;
 use App\Models\Promotion;
 use App\Models\Product;
+use App\Support\OrderDetailQuantityValidator;
 
 class OrderDetailsUpdateRequest extends FormRequest
 {
@@ -68,6 +69,37 @@ class OrderDetailsUpdateRequest extends FormRequest
                         $validator->errors()->add('weight', 'El campo weight es requerido y debe ser mayor a 0 para productos tipo peso.');
                     }
                 }
+            }
+        });
+
+        $validator->after(function ($validator) {
+            $detail = $this->route('detail');
+            $productId = $this->input('id_product');
+            if (!$productId && $detail) {
+                $productId = $detail->id_product;
+            }
+            $product = $productId ? Product::find($productId) : null;
+            if (!$product) {
+                return;
+            }
+
+            $isWeightProduct = $product->type_product === 'w';
+            $weight = $this->input('weight');
+            if ($weight === null && $detail) {
+                $weight = $detail->weight;
+            }
+            $quantity = $this->input('quantity');
+            if ($quantity === null && $detail) {
+                $quantity = $detail->quantity;
+            }
+
+            $amount = $isWeightProduct && $weight && (float) $weight > 0
+                ? (float) $weight
+                : (float) $quantity;
+
+            $message = OrderDetailQuantityValidator::validateAmountAgainstProduct($product, $amount);
+            if ($message !== null) {
+                $validator->errors()->add($isWeightProduct ? 'weight' : 'quantity', $message);
             }
         });
 

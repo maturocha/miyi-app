@@ -68,6 +68,7 @@ class DeliveriesController extends Controller
         $delivery = Delivery::with([
             'owner:id,name',
             'deliveryOrders.payments',
+            'deliveryOrders.order:id,date,total,id_customer',
             'deliveryOrders.order.customer:id,name,address,cellphone,current_balance',
             'deliveryOrders.order.customer.neighborhood:id,name',
         ])->find($id);
@@ -431,9 +432,17 @@ class DeliveriesController extends Controller
             ->selectRaw('COALESCE(SUM(collected_amount), 0)')
             ->whereColumn('delivery_id', 'deliveries.id');
 
+        $salesSubquery = DB::table('delivery_orders')
+            ->join('orders', 'delivery_orders.order_id', '=', 'orders.id')
+            ->selectRaw('COALESCE(SUM(orders.total), 0)')
+            ->whereColumn('delivery_orders.delivery_id', 'deliveries.id');
+
         $deliveries = Delivery::with(['owner:id,name'])
             ->withCount('orders')
-            ->addSelect(['collected_total' => $collectedSubquery])
+            ->addSelect([
+                'collected_total' => $collectedSubquery,
+                'orders_sales_total' => $salesSubquery,
+            ])
             ->when(!in_array($user->role_id, [1, 4]), function ($query) use ($user) {
                 // Repartidores solo ven sus propios repartos
                 $query->where('owner_user_id', $user->id);

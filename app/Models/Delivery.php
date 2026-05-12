@@ -98,11 +98,17 @@ class Delivery extends Model
             : $this->getTotalCollectedAttribute();
         $expenses = (float) ($this->expenses_amount ?? 0);
 
-        return [
+        $totals = [
             'collected' => $collected,
             'expenses' => $expenses,
             'net' => $collected - $expenses,
         ];
+
+        if (isset($this->attributes['orders_sales_total'])) {
+            $totals['sales_total'] = (float) $this->attributes['orders_sales_total'];
+        }
+
+        return $totals;
     }
 
     /**
