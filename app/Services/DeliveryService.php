@@ -37,6 +37,8 @@ class DeliveryService
                 $this->attachOrders($delivery, $data['order_ids']);
             }
 
+            $this->reorderDeliveryOrdersByZone($delivery);
+
             return $delivery;
         });
     }
@@ -85,6 +87,31 @@ class DeliveryService
             ->where('status', OrderStatus::READY_TO_SHIP)
             ->update(['status' => OrderStatus::ASSIGNED_TO_DELIVERY]);
 
+    }
+
+    /**
+     * Reasigna sequence de delivery_orders por zona (nombre) y luego por id de pedido.
+     *
+     * @param Delivery $delivery
+     * @return void
+     */
+    protected function reorderDeliveryOrdersByZone(Delivery $delivery): void
+    {
+        $pivotIds = DB::table('delivery_orders')
+            ->join('orders', 'delivery_orders.order_id', '=', 'orders.id')
+            ->leftJoin('customers', 'orders.id_customer', '=', 'customers.id')
+            ->leftJoin('neighborhoods', 'customers.id_neighborhood', '=', 'neighborhoods.id')
+            ->leftJoin('zones', 'neighborhoods.id_zone', '=', 'zones.id')
+            ->where('delivery_orders.delivery_id', $delivery->id)
+            ->orderByRaw('zones.name IS NULL, zones.name')
+            ->orderBy('orders.id')
+            ->pluck('delivery_orders.id');
+
+        $seq = 0;
+        foreach ($pivotIds as $pivotId) {
+            $seq++;
+            DB::table('delivery_orders')->where('id', $pivotId)->update(['sequence' => $seq]);
+        }
     }
 
     /**
@@ -173,6 +200,8 @@ class DeliveryService
                 ->where('zones.id', $zoneId)
                 ->where('orders.date', $date)
                 ->where('orders.status', OrderStatus::READY_TO_SHIP)
+                ->orderBy('zones.name')
+                ->orderBy('orders.id')
                 ->select('orders.*')
                 ->get();
 
@@ -193,6 +222,8 @@ class DeliveryService
                     $added++;
                 }
             }
+
+            $this->reorderDeliveryOrdersByZone($delivery);
 
             return $added;
         });
@@ -241,6 +272,8 @@ class DeliveryService
             if ($order->status === OrderStatus::READY_TO_SHIP) {
                 $order->update(['status' => OrderStatus::ASSIGNED_TO_DELIVERY]);
             }
+
+            $this->reorderDeliveryOrdersByZone($delivery);
         });
     }
 

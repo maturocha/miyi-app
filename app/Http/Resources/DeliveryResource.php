@@ -50,6 +50,13 @@ class DeliveryResource extends JsonResource
                     'cash_collected' => (float) $cashCollected,
                     'expenses' => (float) ($this->expenses_amount ?? 0),
                     'net' => (float) $netAmount,
+                    'sales_total' => $this->when($this->relationLoaded('deliveryOrders'), function () {
+                        return (float) $this->deliveryOrders->sum(function ($row) {
+                            return $row->relationLoaded('order') && $row->order
+                                ? (float) ($row->order->total ?? 0)
+                                : 0;
+                        });
+                    }),
                 ],
                 'account_entries' => AccountEntryResource::collection($this->whenLoaded('accountEntries')),
                 'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
