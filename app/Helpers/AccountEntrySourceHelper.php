@@ -8,50 +8,46 @@ use App\Models\DeliveryOrder;
 class AccountEntrySourceHelper
 {
     /**
-     * Resolve source_type + source_id to display label and frontend link.
-     * Returns ['label' => string, 'link' => string|null].
+     * Resolve delivery id and date for account entry source (delivery / delivery_orders).
+     * Label and link are built in the frontend.
+     *
+     * @return array{delivery_id: int|null, delivery_date: string|null}
      */
-    public static function resolve(?string $sourceType, $sourceId): array
+    public static function resolveDeliveryContext(?string $sourceType, $sourceId): array
     {
+        $empty = ['delivery_id' => null, 'delivery_date' => null];
+
         if (!$sourceType || $sourceId === null) {
-            return ['label' => 'Manual', 'link' => null];
-        }
-
-        if ($sourceType === 'manual') {
-            return ['label' => 'Manual', 'link' => null];
-        }
-
-        if ($sourceType === 'orders') {
-            return [
-                'label' => 'Pedido #' . (int) $sourceId,
-                'link' => '/pedidos/' . (int) $sourceId,
-            ];
+            return $empty;
         }
 
         if ($sourceType === 'delivery') {
             $delivery = Delivery::find($sourceId);
-            if (!$delivery || !$delivery->delivery_date) {
-                return ['label' => 'Reparto #' . (int) $sourceId, 'link' => '/repartos/' . (int) $sourceId];
+            if (!$delivery) {
+                return $empty;
             }
             return [
-                'label' => 'Reparto del día ' . $delivery->delivery_date->format('d/m/Y'),
-                'link' => '/repartos/' . (int) $sourceId,
+                'delivery_id' => (int) $delivery->id,
+                'delivery_date' => $delivery->delivery_date
+                    ? $delivery->delivery_date->format('Y-m-d')
+                    : null,
             ];
         }
 
         if ($sourceType === 'delivery_orders') {
             $deliveryOrder = DeliveryOrder::with('delivery')->find($sourceId);
             if (!$deliveryOrder || !$deliveryOrder->delivery) {
-                return ['label' => 'Entrega reparto', 'link' => null];
+                return $empty;
             }
             $delivery = $deliveryOrder->delivery;
-            $dateStr = $delivery->delivery_date ? $delivery->delivery_date->format('d/m/Y') : '';
             return [
-                'label' => $dateStr ? ('Reparto del día ' . $dateStr) : ('Reparto #' . $delivery->id),
-                'link' => '/repartos/' . (int) $delivery->id,
+                'delivery_id' => (int) $delivery->id,
+                'delivery_date' => $delivery->delivery_date
+                    ? $delivery->delivery_date->format('Y-m-d')
+                    : null,
             ];
         }
 
-        return ['label' => $sourceType, 'link' => null];
+        return $empty;
     }
 }

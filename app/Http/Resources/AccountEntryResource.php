@@ -9,7 +9,10 @@ class AccountEntryResource extends JsonResource
 {
     public function toArray($request)
     {
-        $sourceDisplay = AccountEntrySourceHelper::resolve($this->source_type, $this->source_id);
+        $deliveryContext = AccountEntrySourceHelper::resolveDeliveryContext(
+            $this->source_type,
+            $this->source_id
+        );
 
         return [
             'id' => $this->id,
@@ -27,8 +30,8 @@ class AccountEntryResource extends JsonResource
             'notes' => $this->notes,
             'source_type' => $this->source_type,
             'source_id' => $this->source_id,
-            'source_label' => $sourceDisplay['label'],
-            'source_link' => $sourceDisplay['link'],
+            'delivery_id' => $deliveryContext['delivery_id'],
+            'delivery_date' => $deliveryContext['delivery_date'],
             'created_by_user_id' => $this->created_by_user_id,
             'created_by_user' => $this->when($this->relationLoaded('createdByUser') && $this->createdByUser, function () {
                 return [
@@ -36,7 +39,6 @@ class AccountEntryResource extends JsonResource
                     'name' => $this->createdByUser->name,
                 ];
             }),
-            'delivery_id' => $this->delivery_id,
             'validation_status' => $this->validation_status,
             'balance_at_entry' => $this->balance_at_entry !== null ? (float) $this->balance_at_entry : null,
             'payment_methods' => $this->when($this->relationLoaded('paymentMethods'), function () {

@@ -58,7 +58,8 @@ class DeliveryService
 
         foreach ($orders as $item) {
             if (is_array($item)) {
-                $orderId = $item['id'];
+                $orderId = (int) $item['id'];
+                $this->assertOrderNotAssignedElsewhere($delivery, $orderId);
                 $orderIds[] = $orderId;
                 if (isset($item['sequence']) && (int) $item['sequence'] > 0) {
                     $seq = (int) $item['sequence'];
@@ -70,7 +71,8 @@ class DeliveryService
                     $seq = ++$sequence;
                 }
             } else {
-                $orderId = $item;
+                $orderId = (int) $item;
+                $this->assertOrderNotAssignedElsewhere($delivery, $orderId);
                 $orderIds[] = $orderId;
                 $seq = ++$sequence;
             }
@@ -241,19 +243,8 @@ class DeliveryService
     public function addOrder(Delivery $delivery, Order $order, bool $override = false): void
     {
         DB::transaction(function () use ($delivery, $order, $override) {
-            // Check if order is already assigned to another active delivery on the same day
             if (!$override) {
-                $conflictingDelivery = Delivery::where('delivery_date', $delivery->delivery_date)
-                    ->where('id', '!=', $delivery->id)
-                    ->whereIn('status', [DeliveryStatus::NOT_STARTED, DeliveryStatus::IN_PROGRESS])
-                    ->whereHas('orders', function ($query) use ($order) {
-                        $query->where('orders.id', $order->id);
-                    })
-                    ->first();
-
-                if ($conflictingDelivery) {
-                    throw new \Exception('El pedido ya está asignado a otro reparto activo del mismo día.');
-                }
+                $this->assertOrderNotAssignedElsewhere($delivery, (int) $order->id);
             }
 
             // Check if order is already in this delivery
@@ -443,5 +434,26 @@ class DeliveryService
                 $order->update(['status' => OrderStatus::READY_TO_SHIP]);
             }
         });
+    }
+
+    /**
+     * Block assignment when the order is already in another delivery with a non-failed pivot.
+     *
+     * @param Delivery $delivery
+     * @param int $orderId
+     * @return void
+     *
+     * @throws \Exception
+     */
+    protected function assertOrderNotAssignedElsewhere(Delivery $delivery, int $orderId): void
+    {
+        $hasConflict = DeliveryOrder::where('order_id', $orderId)
+            ->where('delivery_id', '!=', $delivery->id)
+            ->where('delivery_status', '!=', DeliveryOrderStatus::FAILED)
+            ->exists();
+
+        if ($hasConflict) {
+            throw new \Exception('El pedido ya está asignado a otro reparto sin estado fallido.');
+        }
     }
 }
