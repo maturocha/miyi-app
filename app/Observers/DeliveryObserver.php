@@ -2,7 +2,6 @@
 
 namespace App\Observers;
 
-use App\Models\AccountEntry;
 use App\Models\Delivery;
 use App\Models\Enums\DeliveryStatus;
 use App\Models\Order;
@@ -40,22 +39,11 @@ class DeliveryObserver
         }
 
         if ($newStatus === DeliveryStatus::FINISHED) {
-            $orderIds = $delivery->orders()->pluck('orders.id');
-            $alreadyHasCharges = AccountEntry::where('source_type', 'orders')
-                ->whereIn('source_id', $orderIds)
-                ->exists();
-            if (!$alreadyHasCharges) {
-                $this->ledgerService->createChargesForFinishedDelivery($delivery);
-            }
+            $this->ledgerService->createChargesForFinishedDelivery($delivery);
         }
 
         if ($newStatus === DeliveryStatus::CLOSED) {
-            $alreadyHasPayments = AccountEntry::where('source_type', 'delivery_orders')
-                ->whereIn('source_id', $delivery->deliveryOrders()->pluck('id'))
-                ->exists();
-            if (!$alreadyHasPayments) {
-                $this->ledgerService->createPaymentsForClosedDelivery($delivery);
-            }
+            $this->ledgerService->createPaymentsForClosedDelivery($delivery);
             $this->ledgerService->validateAllPendingEntriesForClosedDelivery($delivery);
         }
     }

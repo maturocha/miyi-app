@@ -56,14 +56,6 @@ class AccountEntry extends Model
         return $this->hasMany(AccountEntryPaymentMethod::class, 'account_entry_id', 'id');
     }
 
-    /**
-     * When source_type is 'delivery', source_id is the delivery id.
-     */
-    public function getDeliveryIdAttribute()
-    {
-        return $this->source_type === 'delivery' ? $this->source_id : null;
-    }
-
     public function isManual(): bool
     {
         return $this->source_type === 'manual';

@@ -128,7 +128,7 @@ class UsersController extends Controller
                       ->orWhere('roles.name', 'like', "%{$search}%");
                 });
             })
-            ->when($request->has('role_id'), function ($query) use ($request) {
+            ->when($request->has('role_id') && $request->input('role_id') !== null, function ($query) use ($request) {
                 return $query->where('users.role_id', $request->input('role_id'));
             })
             ->orderBy(

@@ -9,6 +9,7 @@ use App\Models\Enums\AccountEntryType;
 use App\Models\Enums\AccountEntryValidationStatus;
 use App\Models\Customer;
 use App\Models\Delivery;
+use App\Models\Enums\DeliveryOrderStatus;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,36 +25,28 @@ class DeliveryLedgerService
     {
         $delivery->load(['deliveryOrders.order']);
 
-        $ordersByKey = [];
-        foreach ($delivery->deliveryOrders as $deliveryOrder) {
-            $order = $deliveryOrder->order;
-            if (!$order) {
-                continue;
-            }
-            $key = $order->id;
-            if (isset($ordersByKey[$key])) {
-                continue;
-            }
-            $ordersByKey[$key] = $order;
-        }
-
-        if (empty($ordersByKey)) {
-            return;
-        }
-
-        $existingSourceIds = AccountEntry::where('source_type', 'orders')
-            ->whereIn('source_id', array_keys($ordersByKey))
-            ->pluck('source_id')
-            ->flip()
-            ->all();
-
         $occurredAt = $delivery->finished_at ?: now();
 
-        DB::transaction(function () use ($ordersByKey, $existingSourceIds, $occurredAt) {
-            foreach ($ordersByKey as $orderId => $order) {
-                if (isset($existingSourceIds[$orderId])) {
+        DB::transaction(function () use ($delivery, $occurredAt) {
+            $processedOrderIds = [];
+
+            foreach ($delivery->deliveryOrders as $deliveryOrder) {
+                if ($deliveryOrder->delivery_status !== DeliveryOrderStatus::DELIVERED) {
                     continue;
                 }
+
+                $order = $deliveryOrder->order;
+                if (!$order || isset($processedOrderIds[$order->id])) {
+                    continue;
+                }
+                $processedOrderIds[$order->id] = true;
+
+                if (AccountEntry::where('source_type', 'orders')
+                    ->where('source_id', $order->id)
+                    ->exists()) {
+                    continue;
+                }
+
                 $customer = Customer::find($order->id_customer);
                 $balanceAtEntry = $customer ? (float) $customer->current_balance : null;
                 AccountEntry::create([
@@ -64,7 +57,7 @@ class DeliveryLedgerService
                     'occurred_at' => $occurredAt,
                     'notes' => null,
                     'source_type' => 'orders',
-                    'source_id' => $orderId,
+                    'source_id' => $order->id,
                     'created_by_user_id' => null,
                     'validation_status' => AccountEntryValidationStatus::PENDING,
                     'balance_at_entry' => $balanceAtEntry,
