@@ -45,6 +45,14 @@ class CustomerResource extends JsonResource
                     return $this->resource->getProductRanking();
                 }),
             ],
+            'account_entries' => $this->resource->accountEntries()
+                ->with(['paymentMethods', 'createdByUser'])
+                ->orderByDesc('occurred_at')
+                ->take(5)
+                ->get()
+                ->map(function ($entry) {
+                    return new AccountEntryResource($entry);
+                }),
         ];
     }
 }
