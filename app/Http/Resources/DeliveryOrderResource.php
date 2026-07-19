@@ -29,6 +29,8 @@ class DeliveryOrderResource extends JsonResource
                         'address' => $this->order->customer->address,
                         'cellphone' => $this->order->customer->cellphone,
                         'current_balance' => (float) ($this->order->customer->current_balance ?? 0),
+                        'neighborhood' => optional($this->order->customer->neighborhood)->name,
+                        'zone' => optional(optional($this->order->customer->neighborhood)->zone)->name,
                     ] : null,
                 ] : null;
             }),
