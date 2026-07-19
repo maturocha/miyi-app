@@ -69,8 +69,9 @@ class DeliveriesController extends Controller
             'owner:id,name',
             'deliveryOrders.payments',
             'deliveryOrders.order:id,date,total,id_customer',
-            'deliveryOrders.order.customer:id,name,address,cellphone,current_balance',
-            'deliveryOrders.order.customer.neighborhood:id,name',
+            'deliveryOrders.order.customer:id,name,address,cellphone,current_balance,id_neighborhood',
+            'deliveryOrders.order.customer.neighborhood:id,name,id_zone',
+            'deliveryOrders.order.customer.neighborhood.zone:id,name',
         ])->find($id);
 
         if (!$delivery) {
