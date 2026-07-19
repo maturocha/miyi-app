@@ -19,6 +19,7 @@ class FinanceDashboardService
         $series = $this->buildSeries($filters, $dateFrom, $dateTo);
         $breakdowns = $this->buildBreakdowns($filters, $dateFrom, $dateTo);
         $recaudacionesRows = $this->buildRecaudacionesRows($filters, $dateFrom, $dateTo);
+        $topCustomers = $this->topCustomers($dateFrom, $dateTo, $filters);
 
         return [
             'meta' => [
@@ -29,7 +30,32 @@ class FinanceDashboardService
             'series' => $series,
             'breakdowns' => $breakdowns,
             'recaudaciones_rows' => $recaudacionesRows,
+            'top_customers' => $topCustomers,
         ];
+    }
+
+    private function topCustomers(string $dateFrom, string $dateTo, array $filters, int $limit = 10): array
+    {
+        $rows = $this->ordersQuery($dateFrom, $dateTo, $filters)
+            ->select([
+                'c.id as customer_id',
+                'c.name as customer_name',
+                DB::raw('COALESCE(SUM(o.total), 0) as sold_total'),
+                DB::raw('COUNT(DISTINCT o.id) as orders_count'),
+            ])
+            ->groupBy('c.id', 'c.name')
+            ->orderByDesc(DB::raw('SUM(o.total)'))
+            ->limit($limit)
+            ->get();
+
+        return array_map(function ($r) {
+            return [
+                'customer_id' => (int) $r->customer_id,
+                'customer_name' => $r->customer_name,
+                'sold_total' => $this->round2((float) $r->sold_total),
+                'orders_count' => (int) $r->orders_count,
+            ];
+        }, $rows->all());
     }
 
     public function rowDetail(array $filters): array
@@ -663,6 +689,117 @@ class FinanceDashboardService
             ->orderBy('z.id', 'asc')
             ->orderBy('u.id', 'asc')
             ->get();
+    }
+
+    public function productsBreakdown(array $filters): array
+    {
+        $dateFrom = $filters['date_from'];
+        $dateTo = $filters['date_to'];
+
+        return [
+            'meta' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+            'by_product' => $this->byProduct($filters, $dateFrom, $dateTo),
+            'by_category' => $this->byCategory($filters, $dateFrom, $dateTo),
+        ];
+    }
+
+    private function orderDetailsQuery(string $dateFrom, string $dateTo, array $filters)
+    {
+        $q = DB::table('order_details as od')
+            ->join('orders as o', 'o.id', '=', 'od.id_order')
+            ->join('products as p', 'p.id', '=', 'od.id_product')
+            ->join('categories as cat', 'cat.id', '=', 'p.id_category')
+            ->join('customers as c', 'c.id', '=', 'o.id_customer')
+            ->join('neighborhoods as n', 'n.id', '=', 'c.id_neighborhood')
+            ->join('zones as z', 'z.id', '=', 'n.id_zone')
+            ->whereBetween('o.date', [$dateFrom, $dateTo]);
+
+        if (!empty($filters['zone_id'])) {
+            $q->where('z.id', (int) $filters['zone_id']);
+        }
+        if (!empty($filters['customer_id'])) {
+            $q->where('o.id_customer', (int) $filters['customer_id']);
+        }
+        if (!empty($filters['owner_user_id'])) {
+            $q->where('o.id_user', (int) $filters['owner_user_id']);
+        }
+        if (!empty($filters['category_id'])) {
+            $q->where('p.id_category', (int) $filters['category_id']);
+        }
+        if (!empty($filters['product_id'])) {
+            $q->where('p.id', (int) $filters['product_id']);
+        }
+
+        return $q;
+    }
+
+    private function byProduct(array $filters, string $dateFrom, string $dateTo): array
+    {
+        $q = $this->orderDetailsQuery($dateFrom, $dateTo, $filters)
+            ->select([
+                'p.id as product_id',
+                'p.name as product_name',
+                'cat.id as category_id',
+                'cat.name as category_name',
+                DB::raw('SUM(od.quantity) as quantity_sold'),
+                DB::raw('SUM(od.weight) as weight_sold'),
+                DB::raw('ROUND(SUM(od.price_final * ((100 - od.discount)/100) * ((100 - o.discount)/100)), 2) as revenue_total'),
+            ])
+            ->groupBy('p.id', 'p.name', 'cat.id', 'cat.name');
+
+        if (!empty($filters['min_quantity'])) {
+            $q->havingRaw('SUM(od.quantity) >= ?', [(float) $filters['min_quantity']]);
+        }
+        if (!empty($filters['max_quantity'])) {
+            $q->havingRaw('SUM(od.quantity) <= ?', [(float) $filters['max_quantity']]);
+        }
+
+        $rows = $q->orderByDesc(DB::raw('SUM(od.quantity)'))->get();
+
+        return array_map(function ($r) {
+            return [
+                'product_id' => (int) $r->product_id,
+                'product_name' => $r->product_name,
+                'category_id' => (int) $r->category_id,
+                'category_name' => $r->category_name,
+                'quantity_sold' => (float) $r->quantity_sold,
+                'weight_sold' => (float) $r->weight_sold,
+                'revenue_total' => $this->round2((float) $r->revenue_total),
+            ];
+        }, $rows->all());
+    }
+
+    private function byCategory(array $filters, string $dateFrom, string $dateTo): array
+    {
+        $q = $this->orderDetailsQuery($dateFrom, $dateTo, $filters)
+            ->select([
+                'cat.id as category_id',
+                'cat.name as category_name',
+                DB::raw('SUM(od.quantity) as quantity_sold'),
+                DB::raw('ROUND(SUM(od.price_final * ((100 - od.discount)/100) * ((100 - o.discount)/100)), 2) as revenue_total'),
+            ])
+            ->groupBy('cat.id', 'cat.name');
+
+        if (!empty($filters['min_quantity'])) {
+            $q->havingRaw('SUM(od.quantity) >= ?', [(float) $filters['min_quantity']]);
+        }
+        if (!empty($filters['max_quantity'])) {
+            $q->havingRaw('SUM(od.quantity) <= ?', [(float) $filters['max_quantity']]);
+        }
+
+        $rows = $q->orderByDesc(DB::raw('SUM(od.quantity)'))->get();
+
+        return array_map(function ($r) {
+            return [
+                'category_id' => (int) $r->category_id,
+                'category_name' => $r->category_name,
+                'quantity_sold' => (float) $r->quantity_sold,
+                'revenue_total' => $this->round2((float) $r->revenue_total),
+            ];
+        }, $rows->all());
     }
 
     private function round2(float $value): float

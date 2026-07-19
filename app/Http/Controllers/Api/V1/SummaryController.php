@@ -4,13 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Zone;
 use App\Models\Order;
-use App\Models\Product;
-use App\Models\Category;
-use App\Models\Customer;
 
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\JsonResponse;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -67,55 +62,4 @@ class SummaryController extends Controller
         return $list;
     }
 
-    public function raises(Request $request)  : JsonResponse  {
-
-        $user = Auth::user();
-
-        $date = Carbon::parse($request->input('date', ''))->format('Y-m-d');
-        $list = Order::getOrderByDate($date, $date, $user);
-
-        return response()->json($list);
-
-
-    }
-
-    public function statistics(Request $request)  : JsonResponse  
-    {
-
-        $type = $request->input('type', '');
-
-        $start_date = Carbon::parse($request->input('start_date', ''))->format('Y-m-d');
-        $end_date = Carbon::parse($request->input('end_date', ''))->format('Y-m-d');
-
-        switch ($type) {
-            case 'products':
-                $data = [
-                    'pmq' => Product::getRankQuantity([$start_date, $end_date], 20),
-                    'pmkg' => Product::getRankKg([$start_date, $end_date], 20),
-                    'pms' => Product::getRankPurchase([$start_date, $end_date], 20),
-                    'pmr' => Product::getRentableProducts([$start_date, $end_date], 20)
-                ];
-                break;
-            case 'customers':
-                $data = [
-                    'cmc' => Customer::getRankPurchase([$start_date, $end_date], 20)
-                ];
-                break;
-            case 'categories':
-                $data = [
-                    'cxc' => Category::getComisionByCategory([$start_date, $end_date], 20)
-                ];
-                break;
-            default:
-                $data = [];
-                break;
-        }
-
-
-        return response()->json($data);
-
-
-    }
-
-    
 }
