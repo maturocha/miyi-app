@@ -200,12 +200,12 @@ class Product extends Model
   }
 
   public function historyPrices() {
-    return self::join('stock_details','products.id','=','stock_details.id_product')
-                ->join('stocks','stock_details.id_stock','=','stocks.id')
-                ->where('products.id', '=', $this->id)
-                ->where('stock_details.price_purchase', '>', 0)
-                ->select('stocks.created_at as date', 'stock_details.price_purchase as price')
-                ->orderBy('stocks.created_at', 'DESC')
+    return ProductPriceHistory::where('product_id', $this->id)
+                ->whereNotNull('price_purchase')
+                ->selectRaw('DATE(occurred_at) as date, price_purchase as price')
+                ->groupBy(DB::raw('DATE(occurred_at)'), 'price_purchase')
+                ->orderBy('date', 'DESC')
+                ->take(30)
                 ->get();
 
   }

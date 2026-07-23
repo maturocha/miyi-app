@@ -19,6 +19,11 @@ class Stock extends Model
       return 'Carga de stock del ' . Carbon::parse($this->date)->format('d/m/Y') ;
   }
 
+  public function stockDetails()
+  {
+    return $this->hasMany(Stock_details::class, 'id_stock');
+  }
+
   public static function getAll() {
     return self::join('users','stocks.id_user','=','users.id')
                 ->join('stock_details','stock_details.id_stock','=','stocks.id')

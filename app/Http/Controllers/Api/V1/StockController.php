@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Stock;
-use App\Models\Stock_details;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -48,7 +47,8 @@ class StockController extends Controller
 
         if ($stock) {
             $details = $this->buildStockDetails($items, $stock->id, $values['type']);
-            Stock_details::insert($details);
+            // createMany() (not the query-builder insert()) so Stock_details observers fire per row.
+            $stock->stockDetails()->createMany($details);
             $response = response()->json($stock, 201);
         } else {
             $response = response()->json(['data' => 'Resource can not be created'], 500);

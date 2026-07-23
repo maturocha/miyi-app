@@ -12,4 +12,9 @@ class Stock_details extends Model
       'id_stock', 'id_product', 'quantity', 'due_date', 'bulto_reference', 'id_provider', 'price_purchase'
   ];
 
+  public function stock()
+  {
+    return $this->belongsTo(Stock::class, 'id_stock');
+  }
+
 }
