@@ -177,26 +177,82 @@ class Product extends Model
 
   }
 
-  public function stockMoving() {
+  /**
+   * Base query for this product's stock movements (joins only, no select/order/group/limit).
+   */
+  private function stockMovingBaseQuery() {
     return self::join('stock_details','products.id','=','stock_details.id_product')
                 ->join('stocks','stock_details.id_stock','=','stocks.id')
-                ->where('products.id', '=', $this->id)
+                ->where('products.id', '=', $this->id);
+  }
+
+  public function stockMoving($limit = 20) {
+    return $this->stockMovingBaseQuery()
                 ->select('stocks.id', 'stocks.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
                 ->orderBy('stocks.created_at', 'DESC')
                 ->groupBy('stock_details.id')
-                ->take(20)->get();
+                ->take($limit)->get();
 
   }
 
-  public function orderMoving() {
+  /**
+   * Total number of stock movement groups for this product. Deliberately not using
+   * ->paginate()/->count() on the grouped query: Eloquent's automatic count query does not
+   * strip an existing groupBy, so it would return the row count of a single group instead of
+   * the number of groups.
+   */
+  public function stockMovingTotal(): int {
+    return $this->stockMovingBaseQuery()->distinct()->count('stock_details.id');
+  }
+
+  /**
+   * Paginated stock movements for this product (manual skip/take, since groupBy breaks
+   * Eloquent's automatic paginate() count).
+   */
+  public function stockMovingPaginated(int $perPage, int $page): array {
+    $items = $this->stockMovingBaseQuery()
+                ->select('stocks.id', 'stocks.created_at as date', DB::raw('SUM(stock_details.quantity) as quantity'), 'stocks.type as type')
+                ->orderBy('stocks.created_at', 'DESC')
+                ->groupBy('stock_details.id')
+                ->skip(($page - 1) * $perPage)
+                ->take($perPage)
+                ->get();
+
+    return ['items' => $items, 'total' => $this->stockMovingTotal()];
+  }
+
+  /**
+   * Base query for this product's order (sales) movements.
+   */
+  private function orderMovingBaseQuery() {
     return self::join('order_details','products.id','=','order_details.id_product')
                 ->join('orders','order_details.id_order','=','orders.id')
-                ->where('products.id', '=', $this->id)
+                ->where('products.id', '=', $this->id);
+  }
+
+  public function orderMoving($limit = 20) {
+    return $this->orderMovingBaseQuery()
                 ->select('orders.created_at as date', 'orders.id', DB::raw('SUM(order_details.quantity) as quantity'))
                 ->orderBy('orders.created_at', 'DESC')
                 ->groupBy('order_details.id')
-                ->take(20)->get();
+                ->take($limit)->get();
 
+  }
+
+  public function orderMovingTotal(): int {
+    return $this->orderMovingBaseQuery()->distinct()->count('order_details.id');
+  }
+
+  public function orderMovingPaginated(int $perPage, int $page): array {
+    $items = $this->orderMovingBaseQuery()
+                ->select('orders.created_at as date', 'orders.id', DB::raw('SUM(order_details.quantity) as quantity'))
+                ->orderBy('orders.created_at', 'DESC')
+                ->groupBy('order_details.id')
+                ->skip(($page - 1) * $perPage)
+                ->take($perPage)
+                ->get();
+
+    return ['items' => $items, 'total' => $this->orderMovingTotal()];
   }
 
   public function historyPrices() {

@@ -63,8 +63,14 @@ class ProductResource extends JsonResource
         if ($isShow && $isAdminOrContable) {
             $data = array_merge($data, [
                 'history_prices'  => $this->historyPrices(),
-                'history_stock'   => $this->stockMoving(),
-                'history_sales'   => $this->orderMoving(),
+                'history_stock'   => [
+                    'data' => $this->stockMoving(5),
+                    'total' => $this->stockMovingTotal(),
+                ],
+                'history_sales'   => [
+                    'data' => $this->orderMoving(5),
+                    'total' => $this->orderMovingTotal(),
+                ],
                 'min_stock'       => $this->min_stock
             ]);
         }

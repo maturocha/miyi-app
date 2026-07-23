@@ -79,6 +79,7 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::resource('customers', 'CustomersController');
                 Route::get('customers/{id}/account-entries', 'CustomersController@accountEntries');
                 Route::get('customers/{id}/account-summary', 'CustomersController@accountSummary');
+                Route::get('customers/{id}/orders', 'CustomersController@orders');
 
                 Route::get('account-entries', 'AccountEntriesController@index');
                 Route::post('account-entries', 'AccountEntriesController@store');
@@ -97,6 +98,8 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::resource('categories', 'CategoriesController');
 
                 Route::resource('products', 'ProductsController');
+                Route::get('products/{id}/sales-history', 'ProductsController@salesHistory');
+                Route::get('products/{id}/stock-history', 'ProductsController@stockHistory');
 
                 Route::resource('promotions', 'PromotionController');
 

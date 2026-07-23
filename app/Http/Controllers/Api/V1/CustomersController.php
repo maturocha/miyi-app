@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\AccountEntry;
 use App\Models\Customer;
+use App\Models\Order;
 use App\Http\Resources\AccountEntryResource;
 use App\Http\Resources\CustomerResource;
 use Illuminate\Support\Facades\Auth;
@@ -114,6 +115,42 @@ class CustomersController extends Controller
             'data' => [
                 'customer_id' => (int) $id,
                 'current_balance' => (float) ($customer->current_balance ?? 0),
+            ],
+        ]);
+    }
+
+    /**
+     * List orders for a customer (paginated).
+     */
+    public function orders(Request $request, $id): JsonResponse
+    {
+        $customer = Customer::find($id);
+        if (!$customer) {
+            return response()->json(['message' => 'Customer not found'], 404);
+        }
+        $query = Order::where('id_customer', $id)->orderByDesc('date');
+        if ($request->filled('date_from')) {
+            $query->where('date', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->where('date', '<=', $request->input('date_to'));
+        }
+        $perPage = (int) ($request->input('per_page') ?? 20);
+        $paginator = $query->paginate($perPage);
+        $paginator->getCollection()->transform(function ($order) {
+            return [
+                'id' => $order->id,
+                'date' => $order->date,
+                'total' => $order->total,
+            ];
+        });
+        return response()->json([
+            'data' => $paginator->items(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
             ],
         ]);
     }

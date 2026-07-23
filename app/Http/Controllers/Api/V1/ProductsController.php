@@ -97,6 +97,52 @@ class ProductsController extends Controller
     }
 
     /**
+     * Paginated sales history for a product.
+     */
+    public function salesHistory(Request $request, $id): JsonResponse
+    {
+        $product = Product::find($id);
+        if (!$product) {
+            return response()->json(['message' => 'Product not found'], 404);
+        }
+        $page = max(1, (int) ($request->input('page') ?? 1));
+        $perPage = (int) ($request->input('per_page') ?? 20);
+        $result = $product->orderMovingPaginated($perPage, $page);
+        return response()->json([
+            'data' => $result['items'],
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => max((int) ceil($result['total'] / max($perPage, 1)), 1),
+                'per_page' => $perPage,
+                'total' => $result['total'],
+            ],
+        ]);
+    }
+
+    /**
+     * Paginated stock movement history for a product.
+     */
+    public function stockHistory(Request $request, $id): JsonResponse
+    {
+        $product = Product::find($id);
+        if (!$product) {
+            return response()->json(['message' => 'Product not found'], 404);
+        }
+        $page = max(1, (int) ($request->input('page') ?? 1));
+        $perPage = (int) ($request->input('per_page') ?? 20);
+        $result = $product->stockMovingPaginated($perPage, $page);
+        return response()->json([
+            'data' => $result['items'],
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => max((int) ceil($result['total'] / max($perPage, 1)), 1),
+                'per_page' => $perPage,
+                'total' => $result['total'],
+            ],
+        ]);
+    }
+
+    /**
      * Destroy a resource.
      *
      * @param Illuminate\Http\Request $request
