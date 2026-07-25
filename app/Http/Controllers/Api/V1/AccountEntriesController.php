@@ -57,6 +57,52 @@ class AccountEntriesController extends Controller
         ]);
     }
 
+    /**
+     * Grand total debt + debt breakdown by zone (debtor customers only).
+     */
+    public function balanceSummary(Request $request): JsonResponse
+    {
+        $query = DB::table('customers')
+            ->join('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood')
+            ->join('zones', 'zones.id', '=', 'neighborhoods.id_zone')
+            ->whereNull('customers.deleted_at')
+            ->where('customers.current_balance', '>', 0);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('customers.fullname', 'like', "%{$search}%")
+                  ->orWhere('customers.name', 'like', "%{$search}%");
+            });
+        }
+        if ($request->filled('id_neighborhood')) {
+            $query->where('neighborhoods.id', (int) $request->input('id_neighborhood'));
+        }
+        if ($request->filled('id_zone')) {
+            $query->where('zones.id', (int) $request->input('id_zone'));
+        }
+
+        $grandTotal = (clone $query)->sum('customers.current_balance');
+
+        $byZone = (clone $query)
+            ->select(
+                'zones.id as zone_id',
+                'zones.name as zone_name',
+                DB::raw('COALESCE(SUM(customers.current_balance), 0) as total_debt'),
+                DB::raw('COUNT(*) as customers_count')
+            )
+            ->groupBy('zones.id', 'zones.name')
+            ->orderByDesc('total_debt')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'grand_total' => round((float) $grandTotal, 2),
+                'by_zone' => $byZone,
+            ],
+        ]);
+    }
+
     public function store(StoreAccountEntryRequest $request): JsonResponse
     {
         $data = $request->validated();

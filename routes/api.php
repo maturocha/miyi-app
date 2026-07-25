@@ -84,6 +84,7 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::get('account-entries', 'AccountEntriesController@index');
                 Route::post('account-entries', 'AccountEntriesController@store');
                 Route::post('account-entries/bulk-validate', 'AccountEntriesController@bulkValidate');
+                Route::get('account-entries/balance-summary', 'AccountEntriesController@balanceSummary');
                 Route::get('account-entries/{account_entry}', 'AccountEntriesController@show');
                 Route::put('account-entries/{account_entry}/validate', 'AccountEntriesController@validateEntry');
                 Route::patch('account-entries/{account_entry}', 'AccountEntriesController@update');
