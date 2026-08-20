@@ -29,15 +29,17 @@ class DeliveryService
                 'notes' => $data['notes'] ?? null,
             ]);
 
+            $attachedIds = [];
+
             // Nuevo payload con prioridad explícita
             if (!empty($data['orders'])) {
-                $this->attachOrders($delivery, $data['orders']);
+                $attachedIds = $this->attachOrders($delivery, $data['orders']);
             } elseif (!empty($data['order_ids'])) {
                 // Compat: payload anterior sólo con IDs
-                $this->attachOrders($delivery, $data['order_ids']);
+                $attachedIds = $this->attachOrders($delivery, $data['order_ids']);
             }
 
-            $this->reorderDeliveryOrdersByZone($delivery);
+            $this->reorderDeliveryOrdersByZone($delivery, $attachedIds);
 
             return $delivery;
         });
@@ -48,9 +50,9 @@ class DeliveryService
      *
      * @param Delivery $delivery
      * @param array $orders Array de IDs o de arrays ['id' => int, 'sequence' => int]
-     * @return void
+     * @return array IDs de pedidos incluidos en el attach
      */
-    protected function attachOrders(Delivery $delivery, array $orders): void
+    protected function attachOrders(Delivery $delivery, array $orders): array
     {
         $sequence = $delivery->orders()->max('sequence') ?? 0;
         $syncData = [];
@@ -89,17 +91,32 @@ class DeliveryService
             ->where('status', OrderStatus::READY_TO_SHIP)
             ->update(['status' => OrderStatus::ASSIGNED_TO_DELIVERY]);
 
+        return $orderIds;
     }
 
     /**
-     * Reasigna sequence de delivery_orders por zona (nombre) y luego por id de pedido.
+     * Reordena las filas de `delivery_orders` agrupando por zona y renumerando
+     * `sequence` de forma consecutiva (1..N) sin huecos ni duplicados.
+     *
+     * Criterio de zona (el mismo usado al crear un reparto): zonas ordenadas por
+     * `zones.name` ascendente, pedidos sin zona al final y, dentro de cada zona,
+     * por `orders.id` ascendente.
+     *
+     * - Los pedidos que ya estaban en el reparto conservan siempre su orden
+     *   relativo actual (incluye repartos ordenados manualmente).
+     * - Los pedidos indicados en $newOrderIds se insertan al final del grupo de
+     *   su zona. Si esa zona todavía no existe en el reparto, el grupo nuevo se
+     *   inserta en su posición canónica cuando el reparto sigue el orden por
+     *   nombre de zona; si el reparto fue reordenado manualmente, se agrega al
+     *   final para no alterar el recorrido definido.
      *
      * @param Delivery $delivery
+     * @param array $newOrderIds IDs de pedidos recién agregados (vacío = sólo renumerar)
      * @return void
      */
-    protected function reorderDeliveryOrdersByZone(Delivery $delivery): void
+    protected function reorderDeliveryOrdersByZone(Delivery $delivery, array $newOrderIds = []): void
     {
-        $pivotIds = DB::table('delivery_orders')
+        $rows = DB::table('delivery_orders')
             ->join('orders', 'delivery_orders.order_id', '=', 'orders.id')
             ->leftJoin('customers', 'orders.id_customer', '=', 'customers.id')
             ->leftJoin('neighborhoods', 'customers.id_neighborhood', '=', 'neighborhoods.id')
@@ -107,13 +124,152 @@ class DeliveryService
             ->where('delivery_orders.delivery_id', $delivery->id)
             ->orderByRaw('zones.name IS NULL, zones.name')
             ->orderBy('orders.id')
-            ->pluck('delivery_orders.id');
+            ->select([
+                'delivery_orders.id',
+                'delivery_orders.order_id',
+                'delivery_orders.sequence',
+                'zones.id as zone_id',
+                'zones.name as zone_name',
+            ])
+            ->get()
+            ->all();
+
+        if (empty($rows)) {
+            return;
+        }
+
+        $newIds = [];
+        foreach ($newOrderIds as $newOrderId) {
+            $newIds[(int) $newOrderId] = true;
+        }
+
+        // $rows ya viene en el criterio de creación (zona por nombre, luego id de pedido).
+        $existing = [];
+        $added = [];
+        foreach ($rows as $row) {
+            if (isset($newIds[(int) $row->order_id])) {
+                $added[] = $row;
+            } else {
+                $existing[] = $row;
+            }
+        }
+
+        // Los pedidos ya presentes conservan su orden actual (sequence, y pivot id como desempate).
+        usort($existing, function ($a, $b) {
+            $cmp = ((int) $a->sequence) <=> ((int) $b->sequence);
+
+            return $cmp !== 0 ? $cmp : (((int) $a->id) <=> ((int) $b->id));
+        });
+
+        $ordered = $existing;
+
+        // Agrupar los nuevos por zona respetando el criterio de creación dentro de cada grupo.
+        $newByZone = [];
+        foreach ($added as $row) {
+            $newByZone[$this->zoneGroupKey($row)][] = $row;
+        }
+
+        $existingFollowsZoneOrder = $this->followsZoneOrder($existing);
+
+        foreach ($newByZone as $zoneKey => $group) {
+            $lastIndex = -1;
+            foreach ($ordered as $index => $row) {
+                if ($this->zoneGroupKey($row) === $zoneKey) {
+                    $lastIndex = $index;
+                }
+            }
+
+            if ($lastIndex >= 0) {
+                // La zona ya existe: insertar al final de ese grupo.
+                array_splice($ordered, $lastIndex + 1, 0, $group);
+                continue;
+            }
+
+            $insertAt = count($ordered);
+            if ($existingFollowsZoneOrder) {
+                // Reparto en orden canónico: ubicar la zona nueva donde le corresponde.
+                foreach ($ordered as $index => $row) {
+                    if ($this->compareZones($group[0], $row) < 0) {
+                        $insertAt = $index;
+                        break;
+                    }
+                }
+            }
+
+            array_splice($ordered, $insertAt, 0, $group);
+        }
 
         $seq = 0;
-        foreach ($pivotIds as $pivotId) {
+        foreach ($ordered as $row) {
             $seq++;
-            DB::table('delivery_orders')->where('id', $pivotId)->update(['sequence' => $seq]);
+            if ((int) $row->sequence === $seq) {
+                continue; // Ya está en la posición correcta, evitamos escrituras innecesarias.
+            }
+            DB::table('delivery_orders')->where('id', $row->id)->update(['sequence' => $seq]);
         }
+    }
+
+    /**
+     * Clave de agrupación por zona de una fila de delivery_orders (null = sin zona).
+     *
+     * @param object $row
+     * @return string
+     */
+    protected function zoneGroupKey($row): string
+    {
+        return $row->zone_id === null ? 'none' : 'z' . (int) $row->zone_id;
+    }
+
+    /**
+     * Compara dos filas según el criterio de zona: nombre ascendente, sin zona al final.
+     *
+     * @param object $a
+     * @param object $b
+     * @return int
+     */
+    protected function compareZones($a, $b): int
+    {
+        $aNull = $a->zone_name === null;
+        $bNull = $b->zone_name === null;
+
+        if ($aNull || $bNull) {
+            return ($aNull ? 1 : 0) <=> ($bNull ? 1 : 0);
+        }
+
+        return strcmp((string) $a->zone_name, (string) $b->zone_name);
+    }
+
+    /**
+     * Indica si las filas dadas (en su orden actual) respetan el criterio de zona
+     * usado al crear un reparto: zonas agrupadas y ordenadas por nombre, sin zona al final.
+     *
+     * @param array $rows
+     * @return bool
+     */
+    protected function followsZoneOrder(array $rows): bool
+    {
+        $seenKeys = [];
+        $previous = null;
+
+        foreach ($rows as $row) {
+            $key = $this->zoneGroupKey($row);
+            if ($previous !== null && $key === $this->zoneGroupKey($previous)) {
+                continue;
+            }
+
+            if (isset($seenKeys[$key])) {
+                return false; // La zona se repite en bloques separados: orden manual.
+            }
+
+            if ($previous !== null && $this->compareZones($previous, $row) > 0) {
+                return false;
+            }
+
+            $seenKeys[$key] = true;
+            $previous = $row;
+        }
+
+        return true;
     }
 
     /**
@@ -181,6 +337,11 @@ class DeliveryService
                     ->where('status', OrderStatus::READY_TO_SHIP)
                     ->update(['status' => OrderStatus::ASSIGNED_TO_DELIVERY]);
             }
+
+            // Los pedidos recién agregados se ubican dentro del grupo de su zona;
+            // el resto conserva el orden recibido y se renumera sin huecos ni duplicados.
+            $addedOrderIds = array_values(array_diff($newOrderIds, $currentOrderIds));
+            $this->reorderDeliveryOrdersByZone($delivery, $addedOrderIds);
         });
     }
 
@@ -208,6 +369,7 @@ class DeliveryService
                 ->get();
 
             $added = 0;
+            $addedIds = [];
             $sequence = $delivery->orders()->max('sequence') ?? 0;
 
             foreach ($pendingOrders as $order) {
@@ -221,11 +383,12 @@ class DeliveryService
 
                     // Update order status a ASIGNADO A REPARTO
                     $order->update(['status' => OrderStatus::ASSIGNED_TO_DELIVERY]);
+                    $addedIds[] = (int) $order->id;
                     $added++;
                 }
             }
 
-            $this->reorderDeliveryOrdersByZone($delivery);
+            $this->reorderDeliveryOrdersByZone($delivery, $addedIds);
 
             return $added;
         });
@@ -264,7 +427,7 @@ class DeliveryService
                 $order->update(['status' => OrderStatus::ASSIGNED_TO_DELIVERY]);
             }
 
-            $this->reorderDeliveryOrdersByZone($delivery);
+            $this->reorderDeliveryOrdersByZone($delivery, [(int) $order->id]);
         });
     }
 
