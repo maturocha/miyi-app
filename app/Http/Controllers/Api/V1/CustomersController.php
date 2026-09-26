@@ -228,17 +228,21 @@ class CustomersController extends Controller
         }
 
         // Apply neighborhood filter
-        if ($request->has('id_neighborhood')) {
+        // `filled()` (no `has()`): un cliente que limpia el filtro en el
+        // frontend manda `id_neighborhood=` (string vacío), que `has()`
+        // sigue considerando "presente" -> generaba `WHERE neighborhoods.id
+        // = ''`, que no matchea nada y dejaba la lista vacía.
+        if ($request->filled('id_neighborhood')) {
             $neighborhood = $request->input('id_neighborhood');
             $query->join('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood')
                   ->where('neighborhoods.id', '=', $neighborhood);
         }
 
-        // Apply zone filter
-        if ($request->has('id_zone')) {
+        // Apply zone filter (mismo motivo que arriba: `filled()`, no `has()`)
+        if ($request->filled('id_zone')) {
             $zone = $request->input('id_zone');
             // Only join neighborhoods if not already joined
-            if (!$request->has('id_neighborhood')) {
+            if (!$request->filled('id_neighborhood')) {
                 $query->join('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood');
             }
             $query->join('zones', 'zones.id', '=', 'neighborhoods.id_zone')

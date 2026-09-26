@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\AccountEntry;
 use App\Models\Delivery;
+use App\Models\Enums\DeliveryOrderStatus;
 use App\Models\Enums\DeliveryStatus;
 use App\Models\Order;
 use App\Services\DeliveryService;
@@ -439,7 +440,14 @@ class DeliveriesController extends Controller
             ->whereColumn('delivery_orders.delivery_id', 'deliveries.id');
 
         $deliveries = Delivery::with(['owner:id,name'])
-            ->withCount('orders')
+            ->withCount([
+                'orders',
+                // Pedidos entregados (misma fuente que el resumen de Operar Reparto:
+                // delivery_orders.delivery_status = delivered). Campo aditivo para el listado mobile.
+                'orders as delivered_orders_count' => function ($query) {
+                    $query->where('delivery_orders.delivery_status', DeliveryOrderStatus::DELIVERED);
+                },
+            ])
             ->addSelect([
                 'collected_total' => $collectedSubquery,
                 'orders_sales_total' => $salesSubquery,

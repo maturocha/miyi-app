@@ -185,11 +185,15 @@ class OrdersController extends Controller
                     });
                 }
             })
-            ->when($request->has('id_zone'), function ($query) use ($request) {        
+            // `filled()` (no `has()`): al limpiar el filtro en el frontend se
+            // manda `id_zone=`/`status=` (string vacío), que `has()` sigue
+            // viendo como "presente" -> `WHERE zones.id = ''`/`WHERE
+            // orders.status = ''`, que no matchea nada y deja la lista vacía.
+            ->when($request->filled('id_zone'), function ($query) use ($request) {
                 $zone = $request->input('id_zone');
-                $query->where('zones.id', '=', "$zone");   
+                $query->where('zones.id', '=', "$zone");
             })
-            ->when($request->has('status'), function ($query) use ($request) {
+            ->when($request->filled('status'), function ($query) use ($request) {
                 $status = $request->input('status');
                 if (is_array($status)) {
                     $query->whereIn('orders.status', $status);

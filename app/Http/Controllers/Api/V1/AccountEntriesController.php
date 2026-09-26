@@ -42,6 +42,16 @@ class AccountEntriesController extends Controller
                 ->where('neighborhoods.id_zone', (int) $request->input('id_zone'))
                 ->select('account_entries.*');
         }
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('account_entries.notes', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                        $customerQuery->where('fullname', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%");
+                    });
+            });
+        }
 
         $perPage = (int) ($request->input('per_page') ?? 20);
         $paginator = $query->paginate($perPage);
@@ -164,8 +174,33 @@ class AccountEntriesController extends Controller
 
     public function update(UpdateAccountEntryRequest $request, AccountEntry $account_entry): JsonResponse
     {
-        $account_entry->update($request->validated());
-        return response()->json(['data' => new AccountEntryResource($account_entry->fresh())]);
+        $data = $request->validated();
+        $hasLines = array_key_exists('lines', $data);
+        $lines = $data['lines'] ?? [];
+        unset($data['lines']);
+
+        DB::transaction(function () use ($account_entry, $data, $hasLines, $lines) {
+            $account_entry->update($data);
+            // Mismo criterio que store: las líneas por método solo aplican a cobros.
+            // Si se envían, reemplazan a las existentes para no desincronizar monto vs. métodos.
+            if ($hasLines && $account_entry->type === 'payment') {
+                $account_entry->paymentMethods()->delete();
+                foreach ($lines as $line) {
+                    $amount = (float) ($line['amount'] ?? 0);
+                    if ($amount <= 0) {
+                        continue;
+                    }
+                    AccountEntryPaymentMethod::create([
+                        'account_entry_id' => $account_entry->id,
+                        'payment_method' => $line['method'] ?? PaymentMethod::CASH,
+                        'amount' => $amount,
+                        'payment_reference' => $line['reference'] ?? null,
+                    ]);
+                }
+            }
+        });
+
+        return response()->json(['data' => new AccountEntryResource($account_entry->fresh('paymentMethods'))]);
     }
 
     public function destroy(Request $request, AccountEntry $account_entry): JsonResponse
