@@ -161,8 +161,11 @@ class OrderDetailsUpdateRequest extends FormRequest
 
     protected function prepareForValidation()
     {
+        // Sin `discount` en el request: conservar el de la línea guardada (igual
+        // que quantity/price_unit/weight). Antes caía a 0 y se perdía el descuento.
+        $detail = $this->route('detail');
         $this->merge([
-            'discount' => $this->input('discount', 0),
+            'discount' => $this->input('discount', $detail ? ($detail->discount ?? 0) : 0),
         ]);
     }
 

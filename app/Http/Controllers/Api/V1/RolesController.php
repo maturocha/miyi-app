@@ -23,6 +23,8 @@ class RolesController extends Controller
      */
     public function index(Request $request) : JsonResponse
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
         return response()->json($this->paginatedQuery($request));
     }
 
@@ -35,6 +37,8 @@ class RolesController extends Controller
      */
     public function store(Request $request) : JsonResponse
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
         $request->validate([
             'name' => 'required|string|max:255',
         ]);
@@ -58,6 +62,8 @@ class RolesController extends Controller
      */
     public function show(Request $request, Role $role) : JsonResponse
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
         return response()->json($role);
     }
 
@@ -71,6 +77,8 @@ class RolesController extends Controller
      */
     public function update(Request $request, Role $role) : JsonResponse
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
                 
         $role->fill([
             'name' => $request->input('name'),
@@ -91,6 +99,8 @@ class RolesController extends Controller
      */
     public function destroy(Request $request, Role $role) : JsonResponse
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
         $role->delete();
 
         return response()->json($this->paginatedQuery($request));
@@ -106,6 +116,8 @@ class RolesController extends Controller
      */
     public function restore(Request $request, $id)
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
         $role = Role::withTrashed()->where('id', $id)->first();
         $role->deleted_at = null;
         $role->update();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Models\Order;
 use App\Models\Order_details;
 use App\Models\Promotion;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,11 +37,18 @@ class OrdersDetailsController extends Controller
     public function store(OrderDetailsStoreRequest $request) : JsonResponse
     {
         $data = $request->validated();
-        
-        $orderDetail = Order_details::create($data);
 
-        // Actualizar el total de la orden
-        $this->updateOrderTotal($orderDetail->id_order);
+        try {
+            // Pedido entregado en reparto cerrado: no se modifican sus líneas.
+            $orderDetail = DB::transaction(function () use ($data) {
+                Order::lockForEdit((int) $data['id_order']);
+                $orderDetail = Order_details::create($data);
+                $this->updateOrderTotal($orderDetail->id_order);
+                return $orderDetail;
+            });
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
 
         // Cargar relaciones si se solicita
         if ($request->has('with_promotion') && $request->with_promotion == '1') {
@@ -79,13 +87,17 @@ class OrdersDetailsController extends Controller
     public function update(OrderDetailsUpdateRequest $request, Order_details $detail) : JsonResponse
     {
         $data = $request->validated();
-        
-        // Actualizar el detalle con los datos validados
-        $detail->fill($data);
-        $detail->update();
 
-        // Actualizar el total de la orden
-        $this->updateOrderTotal($detail->id_order);
+        try {
+            DB::transaction(function () use ($detail, $data) {
+                Order::lockForEdit((int) $detail->id_order);
+                $detail->fill($data);
+                $detail->update();
+                $this->updateOrderTotal($detail->id_order);
+            });
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
 
         // Cargar relaciones si se solicita
         if ($request->has('with_promotion') && $request->with_promotion == '1') {
@@ -106,16 +118,21 @@ class OrdersDetailsController extends Controller
     public function destroy(Request $request, Order_details $detail) : JsonResponse
     {
         try {
-            $orderId = $detail->id_order;
-            $detail->delete();
+            DB::transaction(function () use ($detail) {
+                $orderId = (int) $detail->id_order;
+                Order::lockForEdit($orderId);
+                $detail->delete();
 
-            // Actualizar el total de la orden después de eliminar el detalle
-            $this->updateOrderTotal($orderId);
-            
+                // Actualizar el total de la orden después de eliminar el detalle
+                $this->updateOrderTotal($orderId);
+            });
+
             return response()->json([
                 'success' => true,
                 'message' => 'Detalle del pedido eliminado exitosamente'
             ]);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -174,23 +191,6 @@ class OrdersDetailsController extends Controller
             return;
         }
 
-        // Calcular el total bruto sumando todos los price_final de los detalles
-        $totalBruto = $order->details()->sum('price_final');
-        
-        // Obtener el costo de entrega y el descuento de la orden
-        $deliveryCost = $order->delivery_cost ?? 0;
-        $discountPercentage = $order->discount ?? 0;
-        
-        // Calcular el descuento en monto
-        $discountAmount = ($totalBruto * $discountPercentage) / 100;
-        
-        // Calcular el total final
-        $total = $totalBruto + $deliveryCost - $discountAmount;
-        
-        // Actualizar la orden con los totales calculados
-        $order->update([
-            'total_bruto' => round($totalBruto, 2),
-            'total' => round($total, 2)
-        ]);
+        $order->recalculateTotals();
     }
 }

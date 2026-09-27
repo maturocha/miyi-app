@@ -23,11 +23,17 @@ class ChangePasswordController extends Controller
     {
        
     
+        // Solo admin o el propio usuario.
+        $authUser = $request->user();
+        abort_unless($authUser && ((int) $authUser->role_id === 1 || (int) $authUser->id === (int) $id), 403);
+
         $request->validate([
             'password' => 'required|string|confirmed|min:6'
         ]);
 
-        $user = User::findOrfail($id)->first();
+        // Antes: findOrfail($id)->first() devolvía el PRIMER usuario de la tabla,
+        // no el pedido, y le cambiaba la contraseña.
+        $user = User::findOrFail($id);
         $user->password = $request->get('password');
         $user->save();
 

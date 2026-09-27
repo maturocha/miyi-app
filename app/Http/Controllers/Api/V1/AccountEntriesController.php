@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\AccountEntryPaymentMethod;
 use App\Models\Enums\AccountEntryValidationStatus;
@@ -23,6 +24,9 @@ class AccountEntriesController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        // Solo Cuenta Corriente (admin / administración) consume estos listados globales.
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 4], true), 403);
+
         $query = AccountEntry::query()
             ->with(['customer:id,name', 'createdByUser:id,name', 'paymentMethods'])
             ->orderByDesc('occurred_at');
@@ -42,9 +46,21 @@ class AccountEntriesController extends Controller
                 ->where('neighborhoods.id_zone', (int) $request->input('id_zone'))
                 ->select('account_entries.*');
         }
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('account_entries.notes', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($customerQuery) use ($search) {
+                        $customerQuery->where('fullname', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%");
+                    });
+            });
+        }
 
-        $perPage = (int) ($request->input('per_page') ?? 20);
+        // Tope 100 (máximo que ofrece el front).
+        $perPage = min(max((int) ($request->input('per_page') ?? 20), 1), 100);
         $paginator = $query->paginate($perPage);
+        AccountEntrySourceHelper::preload($paginator->items());
 
         return response()->json([
             'data' => AccountEntryResource::collection($paginator->items()),
@@ -62,9 +78,14 @@ class AccountEntriesController extends Controller
      */
     public function balanceSummary(Request $request): JsonResponse
     {
+        // Solo Cuenta Corriente (admin / administración) consume estos listados globales.
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 4], true), 403);
+
+        // leftJoin: los deudores sin barrio/zona también suman al total general
+        // (antes el inner join los excluía); en el desglose van como "Sin zona".
         $query = DB::table('customers')
-            ->join('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood')
-            ->join('zones', 'zones.id', '=', 'neighborhoods.id_zone')
+            ->leftJoin('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood')
+            ->leftJoin('zones', 'zones.id', '=', 'neighborhoods.id_zone')
             ->whereNull('customers.deleted_at')
             ->where('customers.current_balance', '>', 0);
 
@@ -87,7 +108,7 @@ class AccountEntriesController extends Controller
         $byZone = (clone $query)
             ->select(
                 'zones.id as zone_id',
-                'zones.name as zone_name',
+                DB::raw("COALESCE(zones.name, 'Sin zona') as zone_name"),
                 DB::raw('COALESCE(SUM(customers.current_balance), 0) as total_debt'),
                 DB::raw('COUNT(*) as customers_count')
             )
@@ -164,8 +185,33 @@ class AccountEntriesController extends Controller
 
     public function update(UpdateAccountEntryRequest $request, AccountEntry $account_entry): JsonResponse
     {
-        $account_entry->update($request->validated());
-        return response()->json(['data' => new AccountEntryResource($account_entry->fresh())]);
+        $data = $request->validated();
+        $hasLines = array_key_exists('lines', $data);
+        $lines = $data['lines'] ?? [];
+        unset($data['lines']);
+
+        DB::transaction(function () use ($account_entry, $data, $hasLines, $lines) {
+            $account_entry->update($data);
+            // Mismo criterio que store: las líneas por método solo aplican a cobros.
+            // Si se envían, reemplazan a las existentes para no desincronizar monto vs. métodos.
+            if ($hasLines && $account_entry->type === 'payment') {
+                $account_entry->paymentMethods()->delete();
+                foreach ($lines as $line) {
+                    $amount = (float) ($line['amount'] ?? 0);
+                    if ($amount <= 0) {
+                        continue;
+                    }
+                    AccountEntryPaymentMethod::create([
+                        'account_entry_id' => $account_entry->id,
+                        'payment_method' => $line['method'] ?? PaymentMethod::CASH,
+                        'amount' => $amount,
+                        'payment_reference' => $line['reference'] ?? null,
+                    ]);
+                }
+            }
+        });
+
+        return response()->json(['data' => new AccountEntryResource($account_entry->fresh('paymentMethods'))]);
     }
 
     public function destroy(Request $request, AccountEntry $account_entry): JsonResponse

@@ -4,7 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Order;
 use App\Models\Order_details;
+use App\Models\DeliveryOrder;
+use App\Models\Delivery;
+use App\Models\AccountEntry;
 use App\Models\Enums\OrderStatus;
+use App\Models\Enums\DeliveryOrderStatus;
+use App\Models\Enums\DeliveryStatus;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -63,8 +68,19 @@ class OrdersController extends Controller
     public function update(OrderUpdateRequest $request, Order $order) : JsonResponse
     {
         $validatedData = $request->validated();
-        
-        $order->update($validatedData);
+
+        try {
+            DB::transaction(function () use ($order, $validatedData) {
+                $locked = Order::lockForEdit($order->id);
+                $locked->update($validatedData);
+                // Recalcular siempre con el lock tomado: el total que arma
+                // OrderUpdateRequest se calcula antes del lock y una edición de
+                // líneas concurrente lo dejaría viejo. También sincroniza el cargo.
+                $locked->recalculateTotals();
+            });
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'success' => true,
@@ -86,9 +102,15 @@ class OrdersController extends Controller
             'status' => 'required|in:' . implode(',', OrderStatus::all()),
         ]);
 
-        $order->update([
-            'status' => $data['status'],
-        ]);
+        try {
+            DB::transaction(function () use ($order, $data) {
+                Order::lockForEdit($order->id)->update([
+                    'status' => $data['status'],
+                ]);
+            });
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'success' => true,
@@ -107,11 +129,52 @@ class OrdersController extends Controller
      */
     public function destroy(Request $request, Order $order) : JsonResponse
     {
-        $ids = Order::getDetailsToDelete($order->id);
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 2, 4], true), 403);
 
-        Order_details::destroy($ids);
+        // Regla: se borra solo si NO fue entregado. Si tenía un cargo (pendiente
+        // o, por datos viejos, validado) se borra también: el observer revierte
+        // el saldo si estaba validado. No se borra si tiene cobros registrados
+        // (plata recibida en un reparto). Todo con el pedido bloqueado: el cierre
+        // de reparto también lo bloquea al generar el cargo.
+        $blockedMessage = DB::transaction(function () use ($order) {
+            // Mismo orden de locks que el flujo de repartos (reparto → pedido)
+            // para no generar deadlocks con updateDeliveryOrder / cierre.
+            $deliveryIds = DeliveryOrder::where('order_id', $order->id)->pluck('delivery_id')->all();
+            if (!empty($deliveryIds)) {
+                Delivery::whereIn('id', $deliveryIds)->orderBy('id')->lockForUpdate()->get();
+            }
+            Order::whereKey($order->id)->lockForUpdate()->first();
 
-        $order->delete();
+            if ($order->wasDelivered()) {
+                return 'No se puede eliminar un pedido entregado.';
+            }
+
+            $deliveryOrderIds = DeliveryOrder::where('order_id', $order->id)->pluck('id');
+            $hasCollections = DeliveryOrder::where('order_id', $order->id)->where('collected_amount', '>', 0)->exists()
+                || AccountEntry::where('source_type', 'delivery_orders')->whereIn('source_id', $deliveryOrderIds)->exists();
+            if ($hasCollections) {
+                return 'No se puede eliminar: el pedido tiene cobros registrados en un reparto.';
+            }
+
+            foreach (AccountEntry::where('source_type', 'orders')->where('source_id', $order->id)->get() as $entry) {
+                $entry->delete();
+            }
+
+            $ids = Order::getDetailsToDelete($order->id);
+            Order_details::destroy($ids);
+            // delivery_orders (y sus pagos) se borran en cascada: el pedido sale
+            // de cualquier reparto donde no se haya entregado.
+            $order->delete();
+
+            return null;
+        });
+
+        if ($blockedMessage !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => $blockedMessage,
+            ], 422);
+        }
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -124,20 +187,41 @@ class OrdersController extends Controller
      */
     public function bulkUpdateStatus(Request $request): JsonResponse
     {
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 2, 4], true), 403);
+
         $data = $request->validate([
             'order_ids' => 'required|array',
             'order_ids.*' => 'integer|exists:orders,id',
             'status' => 'required|in:' . implode(',', OrderStatus::all()),
         ]);
 
-        DB::transaction(function () use ($data) {
-            Order::whereIn('id', $data['order_ids'])
-                ->update(['status' => $data['status']]);
+        $skipped = [];
+        DB::transaction(function () use ($data, &$skipped) {
+            $orders = Order::whereIn('id', $data['order_ids'])->lockForUpdate()->get();
+            $editableIds = [];
+            foreach ($orders as $order) {
+                // Entregados en reparto cerrado: no se tocan (ver Order::lockForEdit).
+                if ($order->isLockedByClosedDelivery()) {
+                    $skipped[] = $order->id;
+                } else {
+                    $editableIds[] = $order->id;
+                }
+            }
+            if (!empty($editableIds)) {
+                Order::whereIn('id', $editableIds)->update(['status' => $data['status']]);
+            }
         });
+
+        $message = 'Estados de pedidos actualizados correctamente';
+        if (!empty($skipped)) {
+            $message = count($skipped) . ' pedido(s) no se modificaron porque fueron entregados en un reparto cerrado: #'
+                . implode(', #', $skipped);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Estados de pedidos actualizados correctamente',
+            'message' => $message,
+            'skipped_ids' => $skipped,
         ]);
     }
 
@@ -185,11 +269,15 @@ class OrdersController extends Controller
                     });
                 }
             })
-            ->when($request->has('id_zone'), function ($query) use ($request) {        
+            // `filled()` (no `has()`): al limpiar el filtro en el frontend se
+            // manda `id_zone=`/`status=` (string vacío), que `has()` sigue
+            // viendo como "presente" -> `WHERE zones.id = ''`/`WHERE
+            // orders.status = ''`, que no matchea nada y deja la lista vacía.
+            ->when($request->filled('id_zone'), function ($query) use ($request) {
                 $zone = $request->input('id_zone');
-                $query->where('zones.id', '=', "$zone");   
+                $query->where('zones.id', '=', "$zone");
             })
-            ->when($request->has('status'), function ($query) use ($request) {
+            ->when($request->filled('status'), function ($query) use ($request) {
                 $status = $request->input('status');
                 if (is_array($status)) {
                     $query->whereIn('orders.status', $status);
@@ -208,6 +296,17 @@ class OrdersController extends Controller
                 'customers.name as customer',
                 'customers.address as customer_address',
                 'zones.name as zone_name'
+            )
+            // Flags para el front (ver Order::isLockedByClosedDelivery / wasDelivered):
+            // ocultar Editar/Eliminar según la regla de reparto.
+            ->selectRaw(
+                "EXISTS (SELECT 1 FROM delivery_orders dl JOIN deliveries dd ON dd.id = dl.delivery_id"
+                . " WHERE dl.order_id = orders.id AND dl.delivery_status = ? AND dd.status = ?) as is_locked",
+                [DeliveryOrderStatus::DELIVERED, DeliveryStatus::CLOSED]
+            )
+            ->selectRaw(
+                "EXISTS (SELECT 1 FROM delivery_orders dw WHERE dw.order_id = orders.id AND dw.delivery_status = ?) as was_delivered",
+                [DeliveryOrderStatus::DELIVERED]
             );
 
         return $orders->paginate($request->input('perPage') ?? 40);

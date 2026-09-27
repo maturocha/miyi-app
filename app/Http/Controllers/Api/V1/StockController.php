@@ -107,41 +107,23 @@ class StockController extends Controller
     }
 
     /**
-     * Update a resource.
-     *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order $order
-     *
-     * @return Illuminate\Http\JsonResponse
+     * Editar/borrar movimientos no está soportado: no está definido si revierte
+     * `products.stock` (lo mantiene un trigger de DB no versionado). Para
+     * corregir un movimiento se carga uno inverso. Antes estos métodos usaban
+     * `Order` sin importar y daban 500 siempre.
      */
-    public function update(Request $request, Order $order) : JsonResponse
+    public function update(Request $request, $id) : JsonResponse
     {
-
-        $attributes = $request->all();
-        
-        $order->fill($attributes);
-        $order->update();
-
-        return response()->json($order);
+        return response()->json([
+            'message' => 'No se puede editar un movimiento de stock. Cargá un movimiento inverso.',
+        ], 405);
     }
 
-    /**
-     * Destroy a resource.
-     *
-     * @param Illuminate\Http\Request $request
-     * @param App\Order $order
-     *
-     * @return Illuminate\Http\JsonResponse
-     */
-    public function destroy(Request $request, Order $order) : JsonResponse
+    public function destroy(Request $request, $id) : JsonResponse
     {
-        $ids = Order::getDetailsToDelete($order->id);
-
-        Order_details::destroy($ids);
-
-        $order->delete();
-
-        return response()->json($this->paginatedQuery($request));
+        return response()->json([
+            'message' => 'No se puede eliminar un movimiento de stock. Cargá un movimiento inverso.',
+        ], 405);
     }
 
     /**

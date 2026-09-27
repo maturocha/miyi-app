@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Delivery;
 
 class DeliveryAddOrderRequest extends FormRequest
 {
@@ -13,7 +14,14 @@ class DeliveryAddOrderRequest extends FormRequest
      */
     public function authorize()
     {
-        return $this->user()->can('addOrders', $this->route('delivery'));
+        // El controller recibe `$id` (sin route model binding): `{delivery}`
+        // llega como string y el Gate no encontraba policy → 403 siempre.
+        $delivery = $this->route('delivery');
+        if (!$delivery instanceof Delivery) {
+            $delivery = Delivery::find($delivery);
+        }
+
+        return $delivery && $this->user()->can('addOrders', $delivery);
     }
 
     /**

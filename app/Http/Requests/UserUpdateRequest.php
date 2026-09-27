@@ -13,7 +13,9 @@ class UserUpdateRequest extends FormRequest
      */
     public function authorize()
     {
-        return true;
+        // Solo admin gestiona usuarios: si no, cualquier usuario podía
+        // asignarse role_id de admin a sí mismo.
+        return (int) optional($this->user())->role_id === 1;
     }
 
     /**

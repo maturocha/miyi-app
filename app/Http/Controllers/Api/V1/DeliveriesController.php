@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\Delivery;
+use App\Models\Enums\AccountEntryType;
+use App\Models\Enums\DeliveryOrderStatus;
 use App\Models\Enums\DeliveryStatus;
 use App\Models\Order;
 use App\Services\DeliveryService;
@@ -128,6 +131,7 @@ class DeliveriesController extends Controller
             })
             ->orderByDesc('occurred_at')
             ->get();
+        AccountEntrySourceHelper::preload($entries);
 
         return response()->json(['data' => AccountEntryResource::collection($entries)]);
     }
@@ -186,10 +190,24 @@ class DeliveriesController extends Controller
         // Don't allow updating status directly through update endpoint
         unset($validated['status'], $validated['orders']);
 
-        $delivery->update($validated);
+        try {
+            // Datos del reparto + pedidos en una sola transacción: si el sync
+            // falla (ej. pedido asignado a otro reparto) no queda a medias.
+            DB::transaction(function () use ($delivery, $validated, $ordersPayload) {
+                $delivery->update($validated);
 
-        if (is_array($ordersPayload)) {
-            $this->deliveryService->syncOrders($delivery, $ordersPayload);
+                if (is_array($ordersPayload)) {
+                    $this->deliveryService->syncOrders($delivery, $ordersPayload);
+                }
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Error de DB: 500 normal, sin exponer el SQL como mensaje de negocio.
+            throw $e;
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         }
 
         return (new DeliveryResource($delivery->fresh()))->response()->setStatusCode(200);
@@ -304,7 +322,14 @@ class DeliveriesController extends Controller
             ], 404);
         }
 
-        $this->deliveryService->updateDeliveryOrder($delivery, $order, $request->validated());
+        try {
+            $this->deliveryService->updateDeliveryOrder($delivery, $order, $request->validated());
+        } catch (\DomainException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
             'success' => true,
@@ -429,9 +454,23 @@ class DeliveriesController extends Controller
     {
         $user = Auth::user();
 
-        $collectedSubquery = DB::table('delivery_orders')
-            ->selectRaw('COALESCE(SUM(collected_amount), 0)')
-            ->whereColumn('delivery_id', 'deliveries.id');
+        // Misma fórmula que el detalle (Delivery::collectedByPaymentMethod):
+        // líneas de pago + fallback legacy (sin líneas, con método) + cobros extra
+        // del reparto. Antes el listado sumaba solo collected_amount y no incluía
+        // los cobros fuera del reparto.
+        $collectedSql = '('
+            . '(SELECT COALESCE(SUM(dop.amount), 0) FROM delivery_order_payments dop'
+            . ' JOIN delivery_orders d ON d.id = dop.delivery_order_id'
+            . ' WHERE d.delivery_id = deliveries.id AND dop.amount > 0)'
+            . ' + (SELECT COALESCE(SUM(d.collected_amount), 0) FROM delivery_orders d'
+            . ' WHERE d.delivery_id = deliveries.id AND d.payment_method IS NOT NULL'
+            . " AND d.payment_method <> '' AND d.collected_amount > 0"
+            . ' AND NOT EXISTS (SELECT 1 FROM delivery_order_payments dop2 WHERE dop2.delivery_order_id = d.id))'
+            . ' + (SELECT COALESCE(SUM(apm.amount), 0) FROM account_entry_payment_methods apm'
+            . ' JOIN account_entries ae ON ae.id = apm.account_entry_id'
+            . " WHERE ae.source_type = 'delivery' AND ae.source_id = deliveries.id"
+            . ' AND ae.type = ? AND apm.amount > 0)'
+            . ') as collected_total';
 
         $salesSubquery = DB::table('delivery_orders')
             ->join('orders', 'delivery_orders.order_id', '=', 'orders.id')
@@ -439,11 +478,18 @@ class DeliveriesController extends Controller
             ->whereColumn('delivery_orders.delivery_id', 'deliveries.id');
 
         $deliveries = Delivery::with(['owner:id,name'])
-            ->withCount('orders')
+            ->withCount([
+                'orders',
+                // Pedidos entregados (misma fuente que el resumen de Operar Reparto:
+                // delivery_orders.delivery_status = delivered). Campo aditivo para el listado mobile.
+                'orders as delivered_orders_count' => function ($query) {
+                    $query->where('delivery_orders.delivery_status', DeliveryOrderStatus::DELIVERED);
+                },
+            ])
             ->addSelect([
-                'collected_total' => $collectedSubquery,
                 'orders_sales_total' => $salesSubquery,
             ])
+            ->selectRaw($collectedSql, [AccountEntryType::PAYMENT])
             ->when(!in_array($user->role_id, [1, 4]), function ($query) use ($user) {
                 // Repartidores solo ven sus propios repartos
                 $query->where('owner_user_id', $user->id);

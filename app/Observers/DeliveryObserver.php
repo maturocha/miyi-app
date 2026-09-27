@@ -43,8 +43,13 @@ class DeliveryObserver
         }
 
         if ($newStatus === DeliveryStatus::CLOSED) {
+            // Idempotente: crea los cargos que falten para pedidos que pasaron a
+            // DELIVERED después de finalizar (durante la revisión).
+            $this->ledgerService->createChargesForFinishedDelivery($delivery);
+            $this->ledgerService->syncPendingChargesForClosedDelivery($delivery);
             $this->ledgerService->createPaymentsForClosedDelivery($delivery);
             $this->ledgerService->validateAllPendingEntriesForClosedDelivery($delivery);
+            $this->ledgerService->discardPendingChargesForUndeliveredOrders($delivery);
         }
     }
 

@@ -192,4 +192,95 @@ class Order extends Model
                 ->get();
   }
 
+
+  /**
+   * Recalcula total_bruto y total desde las líneas, el costo de envío y el
+   * descuento general (%). Única fórmula: la usan el ABM de líneas y el update
+   * del pedido (antes cambiar descuento/envío dejaba el total viejo y el cargo
+   * del reparto usaba ese total).
+   */
+  public function recalculateTotals(): void
+  {
+    $totalBruto = $this->details()->sum('price_final');
+    $deliveryCost = $this->delivery_cost ?? 0;
+    $discountPercentage = $this->discount ?? 0;
+    $discountAmount = ($totalBruto * $discountPercentage) / 100;
+    $total = $totalBruto + $deliveryCost - $discountAmount;
+
+    $this->update([
+      'total_bruto' => round($totalBruto, 2),
+      'total' => round($total, 2),
+    ]);
+
+    $this->syncPendingCharge();
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Reglas de edición / borrado según el reparto
+  |--------------------------------------------------------------------------
+  | - No entregado (nunca o fallido): se edita y se borra (se borra también su
+  |   cargo, si tuviera). Queda disponible para otro reparto.
+  | - Entregado con reparto en curso/finalizado: se edita (el cargo pendiente
+  |   sigue el total), no se borra.
+  | - Entregado en reparto CERRADO: ni editar ni borrar; se corrige con nota de
+  |   crédito/débito en cuenta corriente.
+  */
+
+  /** Entregado en algún reparto (cualquier estado del reparto). */
+  public function wasDelivered(): bool
+  {
+    return DeliveryOrder::where('order_id', $this->id)
+      ->where('delivery_status', \App\Models\Enums\DeliveryOrderStatus::DELIVERED)
+      ->exists();
+  }
+
+  /** Entregado en un reparto ya cerrado: contabilizado, no se puede tocar. */
+  public function isLockedByClosedDelivery(): bool
+  {
+    return DeliveryOrder::where('order_id', $this->id)
+      ->where('delivery_status', \App\Models\Enums\DeliveryOrderStatus::DELIVERED)
+      ->whereHas('delivery', function ($q) {
+        $q->where('status', \App\Models\Enums\DeliveryStatus::CLOSED);
+      })
+      ->exists();
+  }
+
+  public const LOCKED_MESSAGE = 'El pedido fue entregado en un reparto cerrado: no se puede modificar. Corregilo con una nota de crédito o débito en la cuenta corriente.';
+
+  /**
+   * Bloquea la fila del pedido (serializa con el cierre del reparto, que también
+   * la bloquea al generar el cargo) y verifica que se pueda editar.
+   * Llamar dentro de una transacción.
+   *
+   * @throws \DomainException
+   */
+  public static function lockForEdit(int $orderId): self
+  {
+    $order = self::whereKey($orderId)->lockForUpdate()->firstOrFail();
+    if ($order->isLockedByClosedDelivery()) {
+      throw new \DomainException(self::LOCKED_MESSAGE);
+    }
+    return $order;
+  }
+
+  /**
+   * El cargo del pedido se genera al finalizar el reparto con el total de ese
+   * momento. Mientras siga PENDING (reparto no cerrado), lo mantiene alineado
+   * con el total actual. Nunca toca un cargo validado.
+   */
+  public function syncPendingCharge(): void
+  {
+    $charges = AccountEntry::where('source_type', 'orders')
+      ->where('source_id', $this->id)
+      ->where('type', \App\Models\Enums\AccountEntryType::CHARGE)
+      ->where('validation_status', \App\Models\Enums\AccountEntryValidationStatus::PENDING)
+      ->get();
+
+    foreach ($charges as $charge) {
+      if (abs((float) $charge->amount - (float) $this->total) > 0.001) {
+        $charge->update(['amount' => $this->total]);
+      }
+    }
+  }
 }

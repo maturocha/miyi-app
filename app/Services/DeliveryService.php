@@ -317,6 +317,12 @@ class DeliveryService
 
             $newOrderIds = array_keys($normalized);
 
+            // Mismo chequeo que attachOrders/addOrder: sin esto, editar un reparto
+            // permitía sumar un pedido ya activo en otro (y cobrarlo dos veces).
+            foreach (array_diff($newOrderIds, $currentOrderIds) as $addedOrderId) {
+                $this->assertOrderNotAssignedElsewhere($delivery, (int) $addedOrderId);
+            }
+
             // Detach orders that are no longer present and rollback their status
             $ordersToDetach = array_diff($currentOrderIds, $newOrderIds);
             if (!empty($ordersToDetach)) {
@@ -406,6 +412,11 @@ class DeliveryService
     public function addOrder(Delivery $delivery, Order $order, bool $override = false): void
     {
         DB::transaction(function () use ($delivery, $order, $override) {
+            // `override` permite re-asignar pedidos pendientes/fallidos, nunca uno
+            // ya entregado (si su reparto está cerrado, además, está contabilizado).
+            if ($order->wasDelivered()) {
+                throw new \Exception('El pedido ya fue entregado; no se puede agregar a otro reparto.');
+            }
             if (!$override) {
                 $this->assertOrderNotAssignedElsewhere($delivery, (int) $order->id);
             }
@@ -440,6 +451,12 @@ class DeliveryService
      */
     public function startDelivery(Delivery $delivery): void
     {
+        // Reiniciar un reparto finalizado/cerrado pasaba sus pedidos DELIVERED a
+        // OUT_FOR_DELIVERY (DeliveryObserver) y desalineaba el ledger.
+        if (in_array($delivery->status, [DeliveryStatus::FINISHED, DeliveryStatus::CLOSED], true)) {
+            throw new \Exception('No se puede iniciar un reparto finalizado o cerrado.');
+        }
+
         $delivery->update([
             'status' => DeliveryStatus::IN_PROGRESS,
             'started_at' => Carbon::now(),
@@ -455,7 +472,18 @@ class DeliveryService
     public function finishDelivery(Delivery $delivery): void
     {
         DB::transaction(function () use ($delivery) {
-            $delivery->update([
+            // Lock + estado releído: dos finish simultáneos (doble tap, dos
+            // admins) se serializan y el segundo ve el estado ya actualizado.
+            $locked = Delivery::whereKey($delivery->getKey())->lockForUpdate()->firstOrFail();
+
+            // Un reparto cerrado ya tiene cargos y pagos contabilizados.
+            if ($locked->status === DeliveryStatus::CLOSED) {
+                throw new \Exception('No se puede finalizar un reparto cerrado.');
+            }
+            if ($locked->status === DeliveryStatus::FINISHED) {
+                return;
+            }
+            $locked->update([
                 'status' => DeliveryStatus::FINISHED,
                 'finished_at' => Carbon::now(),
             ]);
@@ -471,10 +499,14 @@ class DeliveryService
     public function closeDelivery(Delivery $delivery): void
     {
         DB::transaction(function () use ($delivery) {
-            if ($delivery->status !== DeliveryStatus::FINISHED) {
+            // Lock + estado releído: evita que dos cierres simultáneos validen
+            // los asientos pendientes dos veces.
+            $locked = Delivery::whereKey($delivery->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== DeliveryStatus::FINISHED) {
                 throw new \Exception('Solo se pueden cerrar repartos que están finalizados.');
             }
-            $delivery->update([
+            $locked->update([
                 'status' => DeliveryStatus::CLOSED,
             ]);
         });
@@ -491,6 +523,13 @@ class DeliveryService
     public function updateDeliveryOrder(Delivery $delivery, Order $order, array $data): void
     {
         DB::transaction(function () use ($delivery, $order, $data) {
+            // Mismo lock que finish/close: una edición autorizada justo antes del
+            // cierre espera al cierre y acá ve el estado ya CLOSED.
+            $locked = Delivery::whereKey($delivery->getKey())->lockForUpdate()->firstOrFail();
+            if ($locked->status === DeliveryStatus::CLOSED) {
+                throw new \DomainException('El reparto ya está cerrado; no se pueden editar sus pedidos.');
+            }
+
             $payments = $data['payments'] ?? [];
 
             $totalFromPayments = 0;
