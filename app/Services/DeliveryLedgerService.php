@@ -9,6 +9,8 @@ use App\Models\Enums\AccountEntryType;
 use App\Models\Enums\AccountEntryValidationStatus;
 use App\Models\Customer;
 use App\Models\Delivery;
+use App\Models\DeliveryOrder;
+use App\Models\Order;
 use App\Models\Enums\DeliveryOrderStatus;
 use Illuminate\Support\Facades\DB;
 
@@ -40,6 +42,15 @@ class DeliveryLedgerService
                     continue;
                 }
                 $processedOrderIds[$order->id] = true;
+
+                // Lock del pedido: serializa el exists()+create() si el mismo pedido
+                // se procesa en dos repartos a la vez (evita cargos duplicados), y
+                // se usa ESTA fila (lectura con lock = último valor confirmado): el
+                // `$order` precargado puede tener un total previo a una edición.
+                $order = Order::whereKey($order->id)->lockForUpdate()->first();
+                if (!$order) {
+                    continue;
+                }
 
                 if (AccountEntry::where('source_type', 'orders')
                     ->where('source_id', $order->id)
@@ -130,12 +141,78 @@ class DeliveryLedgerService
     }
 
     /**
+     * Al cerrar, antes de validar: alinea el monto de los cargos PENDING de los
+     * pedidos entregados con su total actual (ediciones hechas después de
+     * finalizar el reparto).
+     */
+    public function syncPendingChargesForClosedDelivery(Delivery $delivery): void
+    {
+        $orderIds = $delivery->deliveryOrders()
+            ->where('delivery_status', DeliveryOrderStatus::DELIVERED)
+            ->pluck('order_id')
+            ->all();
+
+        // lockForUpdate: lectura bloqueante = total confirmado más reciente (no el
+        // snapshot de la transacción) y serializa con ediciones en curso.
+        foreach (Order::whereIn('id', $orderIds)->lockForUpdate()->get() as $order) {
+            $order->syncPendingCharge();
+        }
+    }
+
+    /**
+     * Al cerrar: descarta los cargos PENDING de pedidos que en este reparto NO
+     * quedaron entregados (ej. entregado al finalizar y pasado a fallido en la
+     * revisión). Nunca toca cargos validados ni los de pedidos entregados en otro
+     * reparto (ese cargo lo gestiona el otro cierre). Si el pedido se entrega más
+     * adelante, ese reparto crea un cargo nuevo con total y fecha actuales.
+     */
+    public function discardPendingChargesForUndeliveredOrders(Delivery $delivery): void
+    {
+        $undeliveredOrderIds = $delivery->deliveryOrders()
+            ->where('delivery_status', '!=', DeliveryOrderStatus::DELIVERED)
+            ->pluck('order_id')
+            ->all();
+
+        if (empty($undeliveredOrderIds)) {
+            return;
+        }
+
+        $deliveredElsewhere = DeliveryOrder::whereIn('order_id', $undeliveredOrderIds)
+            ->where('delivery_id', '!=', $delivery->id)
+            ->where('delivery_status', DeliveryOrderStatus::DELIVERED)
+            ->pluck('order_id')
+            ->all();
+
+        $orderIds = array_values(array_diff($undeliveredOrderIds, $deliveredElsewhere));
+        if (empty($orderIds)) {
+            return;
+        }
+
+        $entries = AccountEntry::where('source_type', 'orders')
+            ->whereIn('source_id', $orderIds)
+            ->where('type', AccountEntryType::CHARGE)
+            ->where('validation_status', AccountEntryValidationStatus::PENDING)
+            ->get();
+
+        // delete() por modelo: pasa por AccountEntryObserver (pending => sin impacto en saldo).
+        foreach ($entries as $entry) {
+            $entry->delete();
+        }
+    }
+
+    /**
      * Al cerrar el reparto: todos los movimientos ligados pasan a validated (impacto en saldo vía observer).
      */
     public function validateAllPendingEntriesForClosedDelivery(Delivery $delivery): void
     {
         $deliveryOrderIds = $delivery->deliveryOrders()->pluck('id')->all();
-        $orderIds = $delivery->orders()->pluck('orders.id')->all();
+        // Solo cargos de pedidos entregados en ESTE reparto: si un pedido quedó
+        // fallido acá (o se pasó a fallido en la revisión), su cargo no se valida;
+        // si se re-entregó en otro reparto, ese cargo lo valida el otro cierre.
+        $orderIds = $delivery->deliveryOrders()
+            ->where('delivery_status', DeliveryOrderStatus::DELIVERED)
+            ->pluck('order_id')
+            ->all();
 
         $entries = AccountEntry::query()
             ->where(function ($q) use ($delivery, $deliveryOrderIds, $orderIds) {

@@ -13,8 +13,10 @@ class Customer extends Model
 
   protected $table = 'customers';
   protected $primaryKey = 'id';
+  // current_balance fuera de fillable: solo lo mueve UpdateCustomerBalanceService
+  // (ledger). Con fill($request->all()) un form con saldo viejo lo pisaba.
   protected $fillable = [
-        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type', 'current_balance'
+        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type'
   ];
 
   protected $casts = [

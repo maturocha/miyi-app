@@ -15,6 +15,11 @@ class FinanceDashboardController extends Controller
 
     public function __construct(FinanceDashboardService $service)
     {
+        // Analytics: admin, ventas y administración (mismo criterio que el menú del front).
+        $this->middleware(function ($request, $next) {
+            abort_unless(in_array((int) optional($request->user())->role_id, [1, 2, 4], true), 403);
+            return $next($request);
+        });
         $this->service = $service;
     }
 

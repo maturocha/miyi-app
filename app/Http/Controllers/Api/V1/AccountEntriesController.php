@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\AccountEntryPaymentMethod;
 use App\Models\Enums\AccountEntryValidationStatus;
@@ -23,6 +24,9 @@ class AccountEntriesController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        // Solo Cuenta Corriente (admin / administración) consume estos listados globales.
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 4], true), 403);
+
         $query = AccountEntry::query()
             ->with(['customer:id,name', 'createdByUser:id,name', 'paymentMethods'])
             ->orderByDesc('occurred_at');
@@ -53,8 +57,10 @@ class AccountEntriesController extends Controller
             });
         }
 
-        $perPage = (int) ($request->input('per_page') ?? 20);
+        // Tope 100 (máximo que ofrece el front).
+        $perPage = min(max((int) ($request->input('per_page') ?? 20), 1), 100);
         $paginator = $query->paginate($perPage);
+        AccountEntrySourceHelper::preload($paginator->items());
 
         return response()->json([
             'data' => AccountEntryResource::collection($paginator->items()),
@@ -72,9 +78,14 @@ class AccountEntriesController extends Controller
      */
     public function balanceSummary(Request $request): JsonResponse
     {
+        // Solo Cuenta Corriente (admin / administración) consume estos listados globales.
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 4], true), 403);
+
+        // leftJoin: los deudores sin barrio/zona también suman al total general
+        // (antes el inner join los excluía); en el desglose van como "Sin zona".
         $query = DB::table('customers')
-            ->join('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood')
-            ->join('zones', 'zones.id', '=', 'neighborhoods.id_zone')
+            ->leftJoin('neighborhoods', 'neighborhoods.id', '=', 'customers.id_neighborhood')
+            ->leftJoin('zones', 'zones.id', '=', 'neighborhoods.id_zone')
             ->whereNull('customers.deleted_at')
             ->where('customers.current_balance', '>', 0);
 
@@ -97,7 +108,7 @@ class AccountEntriesController extends Controller
         $byZone = (clone $query)
             ->select(
                 'zones.id as zone_id',
-                'zones.name as zone_name',
+                DB::raw("COALESCE(zones.name, 'Sin zona') as zone_name"),
                 DB::raw('COALESCE(SUM(customers.current_balance), 0) as total_debt'),
                 DB::raw('COUNT(*) as customers_count')
             )

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Delivery;
 use App\Models\Enums\AccountEntryDirection;
+use App\Models\Enums\DeliveryStatus;
 use App\Models\Enums\AccountEntryType;
 use App\Models\Enums\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
@@ -23,7 +25,18 @@ class StoreAccountEntryRequest extends FormRequest
             'amount' => 'required|numeric|min:0.01|max:99999999.99',
             'occurred_at' => 'required|date',
             'notes' => 'nullable|string|max:2000',
-            'delivery_id' => 'nullable|exists:deliveries,id',
+            'delivery_id' => [
+                'nullable',
+                'exists:deliveries,id',
+                // Un cobro con delivery_id queda PENDING hasta el cierre; si el
+                // reparto ya está cerrado nunca se valida ni impacta el saldo.
+                function ($attribute, $value, $fail) {
+                    $delivery = Delivery::find($value);
+                    if ($delivery && $delivery->status === DeliveryStatus::CLOSED) {
+                        $fail('El reparto ya está cerrado; registrá el cobro sin reparto.');
+                    }
+                },
+            ],
             'lines' => 'nullable|array|min:0',
             'lines.*.method' => 'required_with:lines|string|in:' . implode(',', PaymentMethod::all()),
             'lines.*.amount' => 'required_with:lines|numeric|min:0.01|max:99999999.99',

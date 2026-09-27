@@ -42,6 +42,9 @@ class OrderResource extends JsonResource
                     'type' => $this->customer->type,
                 ] : null),
                 'details' => OrderDetailsResource::collection($this->whenLoaded('details')),
+                // Regla de reparto: entregado en reparto cerrado = no editable ni borrable.
+                'is_locked' => $this->resource->isLockedByClosedDelivery(),
+                'was_delivered' => $this->resource->wasDelivered(),
             ]
         ];
     }

@@ -75,10 +75,17 @@ class OrderUpdateRequest extends FormRequest
     protected function prepareForValidation()
     {
         // Convertir valores vacíos a null para campos opcionales
+        // Si el campo no viene en el request se conserva el valor guardado (antes
+        // caía a 0: un update parcial borraba descuento/envío y cambiaba el total).
+        $order = $this->route('order');
         $this->merge([
-            'notes' => $this->input('notes') ?: null,
-            'delivery_cost' => $this->input('delivery_cost') ? (float) $this->input('delivery_cost') : 0,
-            'discount' => $this->input('discount') ? (float) $this->input('discount') : 0,
+            'notes' => $this->has('notes') ? ($this->input('notes') ?: null) : ($order ? $order->notes : null),
+            'delivery_cost' => $this->has('delivery_cost')
+                ? ($this->input('delivery_cost') ? (float) $this->input('delivery_cost') : 0)
+                : ($order ? (float) ($order->delivery_cost ?? 0) : 0),
+            'discount' => $this->has('discount')
+                ? ($this->input('discount') ? (float) $this->input('discount') : 0)
+                : ($order ? (float) ($order->discount ?? 0) : 0),
         ]);
     }
 

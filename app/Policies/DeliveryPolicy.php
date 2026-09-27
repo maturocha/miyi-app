@@ -116,6 +116,10 @@ class DeliveryPolicy
      */
     public function updateOrder(User $user, Delivery $delivery)
     {
+        // Cerrado = ledger contabilizado: una edición ya no llegaría a la cuenta corriente.
+        if ($delivery->status === DeliveryStatus::CLOSED) {
+            return false;
+        }
         // Si IN_PROGRESS: repartidor (owner) puede actualizar sus pedidos
         if ($delivery->status === DeliveryStatus::IN_PROGRESS && $delivery->owner_user_id === $user->id) {
             return true;

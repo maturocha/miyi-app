@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\Customer;
 use App\Models\Order;
@@ -86,8 +87,10 @@ class CustomersController extends Controller
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
         }
-        $perPage = (int) ($request->input('per_page') ?? 20);
+        // Tope 100 (máximo que ofrece el front).
+        $perPage = min(max((int) ($request->input('per_page') ?? 20), 1), 100);
         $paginator = $query->paginate($perPage);
+        AccountEntrySourceHelper::preload($paginator->getCollection());
         $paginator->getCollection()->transform(function ($entry) {
             return new AccountEntryResource($entry);
         });

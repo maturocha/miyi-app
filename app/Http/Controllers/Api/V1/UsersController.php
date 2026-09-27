@@ -21,6 +21,10 @@ class UsersController extends Controller
      */
     public function index(Request $request) : JsonResponse
     {
+        // Incluye email/celular de todos. Lo usan el filtro "Encargado" de Repartos
+        // (admin/administración) y el de Analytics (también ventas).
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 2, 4], true), 403);
+
         return response()->json($this->paginatedQuery($request));
     }
 
@@ -48,6 +52,9 @@ class UsersController extends Controller
      */
     public function show(Request $request, User $user) : JsonResponse
     {
+        // Incluye email/celular de todos: solo admin y administración (filtro "Encargado" de Repartos).
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 4], true), 403);
+
         return response()->json($user);
     }
 
@@ -83,6 +90,8 @@ class UsersController extends Controller
      */
     public function destroy(Request $request, User $user) : JsonResponse
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
         $user->delete();
 
         return response()->json($this->paginatedQuery($request));
@@ -98,6 +107,8 @@ class UsersController extends Controller
      */
     public function restore(Request $request, $id)
     {
+        abort_unless((int) optional($request->user())->role_id === 1, 403);
+
         $user = User::withTrashed()->where('id', $id)->first();
         
         if (!$user) {
