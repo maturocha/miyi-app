@@ -55,7 +55,8 @@ class OrdersController extends Controller
             'customer:id,name,address,time_visit,cellphone',
             'customer.neighborhood:id,name',
             'customer.neighborhood.zone:id,name',
-            'details.promotion:id,name,type'
+            'details.promotion:id,name,type',
+            'details.product'
         ])->find($id);
         
         if (!$order) {
@@ -287,10 +288,10 @@ class OrdersController extends Controller
             })
              ->orderBy(
                 'orders.date',
-                $request->input('sortType') ?? 'DESC')
+                $this->sortDirection($request, 'DESC'))
                 ->orderBy(
                     'orders.id',
-                    $request->input('sortType') ?? 'DESC')
+                    $this->sortDirection($request, 'DESC'))
             ->select(
                 'orders.*',
                 'customers.name as customer',
@@ -309,7 +310,7 @@ class OrdersController extends Controller
                 [DeliveryOrderStatus::DELIVERED]
             );
 
-        return $orders->paginate($request->input('perPage') ?? 40);
+        return $orders->paginate($this->perPage($request, 40, 1000));
     }
 
     /**

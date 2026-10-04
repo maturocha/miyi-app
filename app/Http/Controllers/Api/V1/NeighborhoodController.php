@@ -124,8 +124,15 @@ class NeighborhoodController extends Controller
     {
         $neighborhoods = Neighborhood::join('zones','neighborhoods.id_zone','=','zones.id')
         ->orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
+            $this->sortColumn($request, [
+                'id' => 'neighborhoods.id',
+                'name' => 'neighborhoods.name',
+                'id_zone' => 'neighborhoods.id_zone',
+                'created_at' => 'neighborhoods.created_at',
+                'zone' => 'zones.name',
+                'zone_name' => 'zones.name',
+            ], 'name'),
+            $this->sortDirection($request, 'ASC')
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
@@ -135,7 +142,7 @@ class NeighborhoodController extends Controller
         })
         ->select('neighborhoods.*', 'zones.name as zone');
 
-        return $neighborhoods->paginate($request->input('perPage') ?? 40);
+        return $neighborhoods->paginate($this->perPage($request, 40, 1000));
     }
 
     /**

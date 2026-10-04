@@ -194,10 +194,25 @@ class ProductsController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $products = Product::orderBy(
-            $request->input('sortBy') ?? 'name',
-            $request->input('sortType') ?? 'ASC'
-       )
-       ->with('activePromotions')
+            $this->sortColumn($request, [
+                'name' => 'products.name',
+                'code_miyi' => 'products.code_miyi',
+                'barcode' => 'products.barcode',
+                'price_unit' => 'products.price_unit',
+                'price_purchase' => 'products.price_purchase',
+                'price_min' => 'products.price_min',
+                'percentage_may' => 'products.percentage_may',
+                'percentage_min' => 'products.percentage_min',
+                'stock' => 'products.stock',
+                'id_category' => 'products.id_category',
+                'own_product' => 'products.own_product',
+                'id' => 'products.id',
+                'created_at' => 'products.created_at',
+                'updated_at' => 'products.updated_at',
+            ], 'name'),
+            $this->sortDirection($request, 'ASC')
+        )
+       ->with(['category:id,name', 'images', 'activePromotions'])
        ->when($request->has('search'), function ($query) use ($request) {
             $search = trim($request->input('search'));
             $searchTerms = preg_split('/\s+/', $search); // Divide en palabras individuales
@@ -215,14 +230,16 @@ class ProductsController extends Controller
             $in_stock = $request->input('in_stock') == '1';
 
             if ($in_stock) {
-                return $query->where(function($q){
-                    $q->where('stock','>',0)
-                        ->where('own_product','=',1);
+                return $query->where(function($stockQuery){
+                    $stockQuery->where(function($q){
+                        $q->where('stock','>',0)
+                            ->where('own_product','=',1);
                     })
-                    ->orwhere(function($q){
+                    ->orWhere(function($q){
                         $q->where('stock','<>',0)
-                        ->where('own_product','=', 0);
-                    });    
+                            ->where('own_product','=', 0);
+                    });
+                });
             } else {    
                 return $query->where('stock','=',0);
             }
@@ -244,7 +261,7 @@ class ProductsController extends Controller
         ->orderBy('products.name', 'asc');
         //->whereNull('products.deleted_at');
 
-        return $products->paginate($request->input('perPage') ?? 40);
+        return $products->paginate($this->perPage($request, 40, 5000));
     }
 
     /**

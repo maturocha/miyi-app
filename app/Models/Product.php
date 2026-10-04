@@ -169,6 +169,11 @@ class Product extends Model
 
   }
 
+  public function images()
+  {
+    return $this->hasMany(Image::class, 'id_product')->orderBy('id');
+  }
+
   public function getImages() {
     return self::join('images','products.id','=','images.id_product')
                 ->where('products.id', '=', $this->id)

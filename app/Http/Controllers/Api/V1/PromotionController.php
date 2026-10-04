@@ -111,8 +111,18 @@ class PromotionController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $promotions = Promotion::orderBy(
-            $request->input('sortBy') ?? 'priority',
-            $request->input('sortType') ?? 'ASC'
+            $this->sortColumn($request, [
+                'id' => 'promotions.id',
+                'name' => 'promotions.name',
+                'type' => 'promotions.type',
+                'is_active' => 'promotions.is_active',
+                'starts_at' => 'promotions.starts_at',
+                'ends_at' => 'promotions.ends_at',
+                'priority' => 'promotions.priority',
+                'exclusive' => 'promotions.exclusive',
+                'created_at' => 'promotions.created_at',
+            ], 'priority'),
+            $this->sortDirection($request, 'ASC')
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
@@ -142,6 +152,6 @@ class PromotionController extends Controller
         ->orderBy('priority', 'asc')
         ->orderBy('starts_at', 'desc');
 
-        return $promotions->paginate($request->input('perPage') ?? 40);
+        return $promotions->paginate($this->perPage($request, 40, 100));
     }
 }

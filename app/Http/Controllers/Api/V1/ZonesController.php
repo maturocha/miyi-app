@@ -123,8 +123,13 @@ class ZonesController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $zones = Zone::orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
+            $this->sortColumn($request, [
+                'id' => 'zones.id',
+                'name' => 'zones.name',
+                'code' => 'zones.code',
+                'created_at' => 'zones.created_at',
+            ], 'name'),
+            $this->sortDirection($request, 'ASC')
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
@@ -135,7 +140,7 @@ class ZonesController extends Controller
         })
         ->orderBy('code', 'ASC');
 
-        return $zones->paginate($request->input('perPage') ?? 40);
+        return $zones->paginate($this->perPage($request, 40, 1000));
     }
 
     /**

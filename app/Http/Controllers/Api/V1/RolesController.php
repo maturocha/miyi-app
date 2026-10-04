@@ -136,8 +136,13 @@ class RolesController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $categories = Role::orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
+            $this->sortColumn($request, [
+                'id' => 'roles.id',
+                'name' => 'roles.name',
+                'key' => 'roles.key',
+                'created_at' => 'roles.created_at',
+            ], 'name'),
+            $this->sortDirection($request, 'ASC')
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
@@ -147,7 +152,7 @@ class RolesController extends Controller
         })
         ->orderBy('name', 'ASC');
 
-        return $categories->paginate($request->input('perPage') ?? 40);
+        return $categories->paginate($this->perPage($request, 40, 1000));
     }
 
     /**

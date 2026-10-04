@@ -131,11 +131,15 @@ class MeetupsController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $meetups = Meetup::orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
+            $this->sortColumn($request, [
+                'id' => 'meetups.id',
+                'name' => 'meetups.name',
+                'created_at' => 'meetups.created_at',
+            ], 'name'),
+            $this->sortDirection($request, 'ASC')
         );
 
-        return $meetups->paginate($request->input('perPage') ?? 40);
+        return $meetups->paginate($this->perPage($request, 40, 100));
     }
 
     /**

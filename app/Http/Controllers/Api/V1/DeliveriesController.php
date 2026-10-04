@@ -512,9 +512,9 @@ class DeliveriesController extends Controller
                     $query->where('id', $search);
                 }
             })
-            ->orderBy('delivery_date', $request->input('sortType') ?? 'DESC')
-            ->orderBy('id', $request->input('sortType') ?? 'DESC');
+            ->orderBy('delivery_date', $this->sortDirection($request, 'DESC'))
+            ->orderBy('id', $this->sortDirection($request, 'DESC'));
 
-        return $deliveries->paginate($request->input('perPage') ?? 40);
+        return $deliveries->paginate($this->perPage($request, 40, 100));
     }
 }
