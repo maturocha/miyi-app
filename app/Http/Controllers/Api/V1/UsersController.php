@@ -143,10 +143,19 @@ class UsersController extends Controller
                 return $query->where('users.role_id', $request->input('role_id'));
             })
             ->orderBy(
-                $request->input('sortBy') ?? 'users.id',
-                $request->input('sortType') ?? 'ASC'
+                $this->sortColumn($request, [
+                    'id' => 'users.id',
+                    'name' => 'users.name',
+                    'email' => 'users.email',
+                    'cel' => 'users.cel',
+                    'role_id' => 'users.role_id',
+                    'last_signin' => 'users.last_signin',
+                    'created_at' => 'users.created_at',
+                    'rol' => 'roles.name',
+                ], 'users.id'),
+                $this->sortDirection($request, 'ASC')
             );
 
-        return $users->paginate($request->input('perPage') ?? 10);
+        return $users->paginate($this->perPage($request, 10, 1000));
     }
 }

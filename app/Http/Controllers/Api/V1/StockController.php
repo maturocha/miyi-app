@@ -160,7 +160,7 @@ class StockController extends Controller
             $this->filter($query, 'type', ['=' => $type]);
         }
 
-        return $query->orderBy('id', 'DESC')->paginate($request->input('perPage') ?? 40);
+        return $query->orderBy('id', 'DESC')->paginate($this->perPage($request, 40, 100));
     }
 
     /**

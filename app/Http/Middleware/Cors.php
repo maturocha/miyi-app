@@ -16,11 +16,12 @@ class Cors
      */
     public function handle(Request $request, Closure $next)
     {
-        $response = $next($request);
+        $response = $request->isMethod('OPTIONS') ? response('', 204) : $next($request);
 
         $response->headers->set('Access-Control-Allow-Origin', '*');
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
         $response->headers->set('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, X-Auth-Token, X-Token-Auth, Authorization, Origin');
+        $response->headers->set('Access-Control-Max-Age', '86400');
 
         return $response;
     }

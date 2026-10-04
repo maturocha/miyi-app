@@ -108,7 +108,6 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 // Finance dashboard (new; does not modify existing endpoints)
                 Route::get('finance/dashboard', 'FinanceDashboardController@index');
-                Route::get('finance/dashboard/row-detail', 'FinanceDashboardController@rowDetail');
                 Route::get('finance/dashboard/products', 'FinanceDashboardController@products');
 
                 Route::resource('notifications', 'NotificationsController', ['except' => ['edit', 'create']]);

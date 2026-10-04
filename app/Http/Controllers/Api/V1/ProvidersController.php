@@ -131,8 +131,19 @@ class ProvidersController extends Controller
         $userid = \Auth::id();
 
         $providers = Provider::orderBy(
-             $request->input('sortBy') ?? 'fullname',
-             $request->input('sortType') ?? 'ASC'
+            $this->sortColumn($request, [
+                'id' => 'providers.id',
+                'fullname' => 'providers.fullname',
+                'enterprise' => 'providers.enterprise',
+                'address' => 'providers.address',
+                'email' => 'providers.email',
+                'telephone' => 'providers.telephone',
+                'cellphone' => 'providers.cellphone',
+                'cuit' => 'providers.cuit',
+                'created_at' => 'providers.created_at',
+                'name' => 'providers.fullname',
+            ], 'fullname'),
+            $this->sortDirection($request, 'ASC')
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
@@ -143,7 +154,7 @@ class ProvidersController extends Controller
         })
         ->select('providers.*' , 'providers.fullname as name');
 
-        return $providers->paginate($request->input('perPage') ?? 40);
+        return $providers->paginate($this->perPage($request, 40, 1000));
     }
 
     /**

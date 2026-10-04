@@ -88,7 +88,7 @@ class CustomersController extends Controller
             $query->where('type', $request->input('type'));
         }
         // Tope 100 (máximo que ofrece el front).
-        $perPage = min(max((int) ($request->input('per_page') ?? 20), 1), 100);
+        $perPage = $this->perPage($request, 20, 100);
         $paginator = $query->paginate($perPage);
         AccountEntrySourceHelper::preload($paginator->getCollection());
         $paginator->getCollection()->transform(function ($entry) {
@@ -138,7 +138,7 @@ class CustomersController extends Controller
         if ($request->filled('date_to')) {
             $query->where('date', '<=', $request->input('date_to'));
         }
-        $perPage = (int) ($request->input('per_page') ?? 20);
+        $perPage = $this->perPage($request, 20, 100);
         $paginator = $query->paginate($perPage);
         $paginator->getCollection()->transform(function ($order) {
             return [
@@ -264,21 +264,30 @@ class CustomersController extends Controller
         }
 
         // Apply sorting with explicit table prefix
-        $sortBy = $request->input('sortBy') ?? 'name';
-        $sortType = $request->input('sortType') ?? 'ASC';
-        
-        // Ensure sortBy column is prefixed with table name if it's a customers column
-        if (!str_contains($sortBy, '.')) {
-            $sortBy = "customers.{$sortBy}";
-        }
-        
-        $query->orderBy($sortBy, $sortType);
+        $query->orderBy(
+            $this->sortColumn($request, [
+                'id' => 'customers.id',
+                'name' => 'customers.name',
+                'fullname' => 'customers.fullname',
+                'email' => 'customers.email',
+                'address' => 'customers.address',
+                'cellphone' => 'customers.cellphone',
+                'telephone' => 'customers.telephone',
+                'cuit' => 'customers.cuit',
+                'type' => 'customers.type',
+                'current_balance' => 'customers.current_balance',
+                'time_visit' => 'customers.time_visit',
+                'created_at' => 'customers.created_at',
+                'updated_at' => 'customers.updated_at',
+            ], 'customers.name'),
+            $this->sortDirection($request, 'ASC')
+        );
 
         // Select only customers columns and apply soft delete filter
         $query->select('customers.*')
               ->whereNull('customers.deleted_at');
 
-        return $query->paginate($request->input('perPage') ?? 40);
+        return $query->paginate($this->perPage($request, 40, 500));
     }
 
     /**

@@ -55,6 +55,8 @@ class OrdersDetailsController extends Controller
             $orderDetail->load('promotion:id,name,type');
         }
 
+        $orderDetail->loadMissing('product');
+
         return response()->json(new OrderDetailsResource($orderDetail), 201);
     }
 
@@ -72,6 +74,8 @@ class OrdersDetailsController extends Controller
         if ($request->has('with_promotion') && $request->with_promotion == '1') {
             $orderDetail->load('promotion:id,name,type');
         }
+
+        $orderDetail->loadMissing('product');
 
         return response()->json(new OrderDetailsResource($orderDetail));
     }
@@ -103,6 +107,8 @@ class OrdersDetailsController extends Controller
         if ($request->has('with_promotion') && $request->with_promotion == '1') {
             $detail->load('promotion:id,name,type');
         }
+
+        $detail->loadMissing('product');
 
         return response()->json(new OrderDetailsResource($detail));
     }
@@ -151,8 +157,19 @@ class OrdersDetailsController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $orderDetails = Order_details::orderBy(
-            $request->input('sortBy') ?? 'created_at',
-            $request->input('sortType') ?? 'DESC'
+            $this->sortColumn($request, [
+                'id' => 'order_details.id',
+                'id_order' => 'order_details.id_order',
+                'id_product' => 'order_details.id_product',
+                'quantity' => 'order_details.quantity',
+                'discount' => 'order_details.discount',
+                'weight' => 'order_details.weight',
+                'price_unit' => 'order_details.price_unit',
+                'price_final' => 'order_details.price_final',
+                'created_at' => 'order_details.created_at',
+                'updated_at' => 'order_details.updated_at',
+            ], 'created_at'),
+            $this->sortDirection($request, 'DESC')
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
@@ -174,7 +191,7 @@ class OrdersDetailsController extends Controller
         })
         ->with('product:id,name,code_miyi');
 
-        return $orderDetails->paginate($request->input('perPage') ?? 40);
+        return $orderDetails->paginate($this->perPage($request, 40, 100));
     }
 
     /**

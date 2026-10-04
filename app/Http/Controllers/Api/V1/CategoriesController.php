@@ -124,8 +124,13 @@ class CategoriesController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $categories = Category::orderBy(
-             $request->input('sortBy') ?? 'name',
-             $request->input('sortType') ?? 'ASC'
+            $this->sortColumn($request, [
+                'id' => 'categories.id',
+                'name' => 'categories.name',
+                'slug' => 'categories.slug',
+                'created_at' => 'categories.created_at',
+            ], 'name'),
+            $this->sortDirection($request, 'ASC')
         )
         ->when($request->has('search'), function ($query) use ($request) {
             $search = $request->input('search');
@@ -135,7 +140,7 @@ class CategoriesController extends Controller
         })
         ->orderBy('name', 'ASC');
 
-        return $categories->paginate($request->input('perPage') ?? 40);
+        return $categories->paginate($this->perPage($request, 40, 1000));
     }
 
     /**
