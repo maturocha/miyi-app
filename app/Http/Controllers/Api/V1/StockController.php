@@ -160,7 +160,15 @@ class StockController extends Controller
             $this->filter($query, 'type', ['=' => $type]);
         }
 
-        return $query->orderBy('id', 'DESC')->paginate($this->perPage($request, 40, 100));
+        $page = $query->orderBy('stocks.id', 'DESC')->paginate($this->perPage($request, 40, 100));
+
+        // F2-10: `details` (group_concat de productos) solo para la página.
+        $details = Stock::getDetailsNamesByIds($page->getCollection()->pluck('id')->all());
+        $page->getCollection()->each(function ($stock) use ($details) {
+            $stock->setAttribute('details', $details->get($stock->id));
+        });
+
+        return $page;
     }
 
     /**
