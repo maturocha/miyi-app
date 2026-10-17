@@ -11,6 +11,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAccountEntryRequest;
 use App\Http\Requests\UpdateAccountEntryRequest;
 use App\Http\Resources\AccountEntryResource;
+use App\Http\Resources\DeliveryResource;
+use App\Services\DeliveryService;
 use App\Models\Enums\PaymentMethod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -170,7 +172,23 @@ class AccountEntriesController extends Controller
             return $entry->load('paymentMethods');
         });
 
-        return (new AccountEntryResource($entry))->response()->setStatusCode(201);
+        // F2-01: además de `data` (sin cambios), `account_entry` con la misma forma que
+        // `data.account_entries[]` de GET /deliveries/{id}; y si el cobro es de un reparto
+        // que el usuario puede ver, sus `totals` releídos de la DB tras el commit.
+        $additional = [
+            'account_entry' => (new AccountEntryResource(
+                (clone $entry)->load(['customer:id,name', 'createdByUser:id,name'])
+            ))->resolve($request),
+        ];
+        if ($deliveryId) {
+            $delivery = app(DeliveryService::class)->loadForOperationResponse($deliveryId);
+            $user = Auth::user();
+            if ($delivery && (in_array($user->role_id, [1, 3]) || $delivery->owner_user_id === $user->id)) {
+                $additional['totals'] = (new DeliveryResource($delivery))->totals();
+            }
+        }
+
+        return (new AccountEntryResource($entry))->additional($additional)->response()->setStatusCode(201);
     }
 
     public function show(Request $request, $id): JsonResponse

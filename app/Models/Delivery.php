@@ -173,6 +173,89 @@ class Delivery extends Model
     }
 
     /**
+     * Igual que collectedByPaymentMethodFromOrders() pero en memoria, desde
+     * `deliveryOrders.payments` ya cargados (sin queries). Suma en centavos por
+     * método (= SUM decimal de la DB) y ordena por método como el GROUP BY.
+     *
+     * @return array<string,float>
+     */
+    public function collectedByPaymentMethodFromLoadedOrders(): array
+    {
+        $fromLines = [];
+        $legacy = [];
+        foreach ($this->deliveryOrders as $deliveryOrder) {
+            if ($deliveryOrder->payments->isNotEmpty()) {
+                foreach ($deliveryOrder->payments as $payment) {
+                    $method = (string) ($payment->payment_method ?? '');
+                    $fromLines[$method] = ($fromLines[$method] ?? 0) + self::toCents($payment->amount);
+                }
+            } elseif ($deliveryOrder->payment_method !== null) {
+                $method = (string) $deliveryOrder->payment_method;
+                $legacy[$method] = ($legacy[$method] ?? 0) + self::toCents($deliveryOrder->collected_amount);
+            }
+        }
+
+        $byMethod = [];
+        foreach ([$fromLines, $legacy] as $group) {
+            ksort($group, SORT_STRING);
+            foreach ($group as $method => $cents) {
+                $amount = $cents / 100;
+                if ($method === '' || $amount <= 0) {
+                    continue;
+                }
+                $byMethod[$method] = ($byMethod[$method] ?? 0) + $amount;
+            }
+        }
+
+        return $byMethod;
+    }
+
+    /**
+     * Igual que collectedByPaymentMethodOffRoute() pero en memoria, desde los
+     * asientos ya consultados (con `paymentMethods` cargados).
+     *
+     * @param iterable $accountEntries AccountEntry
+     * @return array<string,float>
+     */
+    public function collectedByPaymentMethodOffRouteFromEntries($accountEntries): array
+    {
+        $totals = [];
+        foreach ($accountEntries as $entry) {
+            if ($entry->source_type !== 'delivery'
+                || (int) $entry->source_id !== (int) $this->id
+                || $entry->type !== AccountEntryType::PAYMENT) {
+                continue;
+            }
+            foreach ($entry->paymentMethods as $pm) {
+                $method = (string) ($pm->payment_method ?? '');
+                $totals[$method] = ($totals[$method] ?? 0) + self::toCents($pm->amount);
+            }
+        }
+        ksort($totals, SORT_STRING);
+
+        $byMethod = [];
+        foreach ($totals as $method => $cents) {
+            $amount = $cents / 100;
+            if ($method === '' || $amount <= 0) {
+                continue;
+            }
+            $byMethod[$method] = ($byMethod[$method] ?? 0) + $amount;
+        }
+
+        return $byMethod;
+    }
+
+    /**
+     * Monto decimal(…,2) a centavos enteros, para sumar sin error de float.
+     *
+     * @param mixed $amount
+     */
+    protected static function toCents($amount): int
+    {
+        return (int) round(((float) ($amount ?? 0)) * 100);
+    }
+
+    /**
      * Cobrado por método de pago pero de cobros fuera del reparto.
      *
      * @return array<string,float>

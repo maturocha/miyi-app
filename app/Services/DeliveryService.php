@@ -619,6 +619,23 @@ class DeliveryService
     }
 
     /**
+     * Relee el reparto con lo necesario para armar `totals` (DeliveryResource::totals)
+     * y el elemento de `orders` tras una escritura de operar. Se llama después del
+     * commit: refleja lo que hay en la DB (incluidas escrituras de otros choferes),
+     * nunca el request.
+     *
+     * @param int $deliveryId
+     * @return Delivery|null
+     */
+    public function loadForOperationResponse(int $deliveryId): ?Delivery
+    {
+        return Delivery::with([
+            'deliveryOrders.payments',
+            'deliveryOrders.order:id,date,total,id_customer',
+        ])->find($deliveryId);
+    }
+
+    /**
      * Remove order from delivery and rollback status if needed.
      *
      * @param Delivery $delivery
