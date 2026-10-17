@@ -495,10 +495,10 @@ class DeliveriesController extends Controller
                 $query->where('owner_user_id', $user->id);
             })
             ->when($request->has('date_from'), function ($query) use ($request) {
-                $query->whereDate('delivery_date', '>=', $request->input('date_from'));
+                $query->where('delivery_date', '>=', $request->input('date_from'));
             })
             ->when($request->has('date_to'), function ($query) use ($request) {
-                $query->whereDate('delivery_date', '<=', $request->input('date_to'));
+                $query->where('delivery_date', '<=', $request->input('date_to'));
             })
             ->when($request->has('status'), function ($query) use ($request) {
                 $query->where('status', $request->input('status'));
