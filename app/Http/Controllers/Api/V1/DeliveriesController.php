@@ -26,7 +26,25 @@ use Illuminate\Support\Facades\DB;
 
 class DeliveriesController extends Controller
 {
+    /** Roles que ven el detalle de cualquier reparto: admin (1) y Administración (4). Los demás, solo si son dueños. */
+    const DETAIL_ROLES = [1, 4];
+
     protected $deliveryService;
+
+    /**
+     * Detalle, cobros y cargas de un reparto (y `totals` del POST de cobro): admin /
+     * Administración, o el dueño. Ids comparados como int (la DB puede traer strings).
+     */
+    public static function canViewDetail($user, Delivery $delivery): bool
+    {
+        if (!$user) {
+            return false;
+        }
+        if (in_array((int) $user->role_id, self::DETAIL_ROLES, true)) {
+            return true;
+        }
+        return $delivery->owner_user_id !== null && (int) $delivery->owner_user_id === (int) $user->id;
+    }
 
     public function __construct(DeliveryService $deliveryService)
     {
@@ -82,9 +100,9 @@ class DeliveriesController extends Controller
             return response()->json(['data' => 'Resource not found'], 404);
         }
 
-        // Check permissions: repartidores solo pueden ver si son owner
+        // Check permissions: admin / administración, o el dueño del reparto
         $user = Auth::user();
-        if (!in_array($user->role_id, [1, 3]) && $delivery->owner_user_id !== $user->id) {
+        if (!self::canViewDetail($user, $delivery)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -117,7 +135,7 @@ class DeliveriesController extends Controller
     public function accountEntries(Request $request, Delivery $delivery): JsonResponse
     {
         $user = Auth::user();
-        if (!in_array($user->role_id, [1, 3]) && $delivery->owner_user_id !== $user->id) {
+        if (!self::canViewDetail($user, $delivery)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -152,7 +170,7 @@ class DeliveriesController extends Controller
         }
 
         $user = Auth::user();
-        if (!in_array($user->role_id, [1, 3]) && $delivery->owner_user_id !== $user->id) {
+        if (!self::canViewDetail($user, $delivery)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
