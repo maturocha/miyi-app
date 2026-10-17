@@ -23,6 +23,12 @@ class AccountEntry extends Model
         'created_by_user_id',
         'validation_status',
         'balance_at_entry',
+        'idempotency_key',
+    ];
+
+    /** Clave técnica de reintentos de POST /account-entries: no se expone. */
+    protected $hidden = [
+        'idempotency_key',
     ];
 
     protected $casts = [

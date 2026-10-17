@@ -15,6 +15,7 @@ use App\Http\Resources\DeliveryResource;
 use App\Services\DeliveryService;
 use App\Models\Enums\PaymentMethod;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -128,6 +129,16 @@ class AccountEntriesController extends Controller
 
     public function store(StoreAccountEntryRequest $request): JsonResponse
     {
+        // Idempotencia: si este usuario ya creó un asiento con la misma clave (reintento
+        // tras un timeout), se devuelve ese asiento sin crear nada. La clave manda: aunque
+        // el payload difiera, se responde el asiento original (el cliente regenera la clave
+        // cuando cambia el cobro). El FormRequest ya hizo el lookup y en ese caso solo
+        // validó la clave.
+        $existing = $request->replayEntry();
+        if ($existing) {
+            return $this->storeResponse($request, $existing, true);
+        }
+
         $data = $request->validated();
         $data['created_by_user_id'] = Auth::id();
 
@@ -150,27 +161,63 @@ class AccountEntriesController extends Controller
         $lines = $data['lines'] ?? [];
         unset($data['lines']);
 
-        $entry = DB::transaction(function () use ($data, $lines) {
-            $entry = AccountEntry::create($data);
-            if ($entry->source_type === 'manual') {
-                $entry->update(['source_id' => $entry->id]);
-            }
-            if ($entry->type === 'payment' && !empty($lines)) {
-                foreach ($lines as $line) {
-                    $amount = (float) ($line['amount'] ?? 0);
-                    if ($amount <= 0) {
-                        continue;
-                    }
-                    AccountEntryPaymentMethod::create([
-                        'account_entry_id' => $entry->id,
-                        'payment_method' => $line['method'] ?? PaymentMethod::CASH,
-                        'amount' => $amount,
-                        'payment_reference' => $line['reference'] ?? null,
-                    ]);
+        $idempotencyKey = isset($data['idempotency_key']) ? (string) $data['idempotency_key'] : null;
+        if ($idempotencyKey === null) {
+            unset($data['idempotency_key']);
+        }
+
+        try {
+            $entry = DB::transaction(function () use ($data, $lines) {
+                $entry = AccountEntry::create($data);
+                if ($entry->source_type === 'manual') {
+                    $entry->update(['source_id' => $entry->id]);
                 }
+                if ($entry->type === 'payment' && !empty($lines)) {
+                    foreach ($lines as $line) {
+                        $amount = (float) ($line['amount'] ?? 0);
+                        if ($amount <= 0) {
+                            continue;
+                        }
+                        AccountEntryPaymentMethod::create([
+                            'account_entry_id' => $entry->id,
+                            'payment_method' => $line['method'] ?? PaymentMethod::CASH,
+                            'amount' => $amount,
+                            'payment_reference' => $line['reference'] ?? null,
+                        ]);
+                    }
+                }
+                return $entry->load('paymentMethods');
+            });
+        } catch (QueryException $e) {
+            // Carrera: otra request con la misma clave insertó primero. El INSERT falla
+            // antes de observers y payment methods, la transacción ya hizo rollback.
+            $isDuplicate = isset($e->errorInfo[1]) && (int) $e->errorInfo[1] === 1062;
+            $existing = ($idempotencyKey !== null && $isDuplicate)
+                ? $this->findByIdempotencyKey($idempotencyKey)
+                : null;
+            if (!$existing) {
+                throw $e;
             }
-            return $entry->load('paymentMethods');
-        });
+            return $this->storeResponse($request, $existing, true);
+        }
+
+        return $this->storeResponse($request, $entry, false);
+    }
+
+    protected function findByIdempotencyKey(string $key): ?AccountEntry
+    {
+        return AccountEntry::with('paymentMethods')
+            ->where('created_by_user_id', Auth::id())
+            ->where('idempotency_key', $key)
+            ->first();
+    }
+
+    /**
+     * Cuerpo de POST /account-entries (creación: 201; replay idempotente: 200 + idempotent_replay).
+     */
+    protected function storeResponse(Request $request, AccountEntry $entry, bool $replay): JsonResponse
+    {
+        $deliveryId = $entry->source_type === 'delivery' && $entry->source_id ? (int) $entry->source_id : null;
 
         // F2-01: además de `data` (sin cambios), `account_entry` con la misma forma que
         // `data.account_entries[]` de GET /deliveries/{id}; y si el cobro es de un reparto
@@ -182,13 +229,15 @@ class AccountEntriesController extends Controller
         ];
         if ($deliveryId) {
             $delivery = app(DeliveryService::class)->loadForOperationResponse($deliveryId);
-            $user = Auth::user();
-            if ($delivery && (in_array($user->role_id, [1, 3]) || $delivery->owner_user_id === $user->id)) {
+            if ($delivery && DeliveriesController::canViewDetail(Auth::user(), $delivery)) {
                 $additional['totals'] = (new DeliveryResource($delivery))->totals();
             }
         }
+        if ($replay) {
+            $additional['idempotent_replay'] = true;
+        }
 
-        return (new AccountEntryResource($entry))->additional($additional)->response()->setStatusCode(201);
+        return (new AccountEntryResource($entry))->additional($additional)->response()->setStatusCode($replay ? 200 : 201);
     }
 
     public function show(Request $request, $id): JsonResponse
