@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\User;
+use App\Http\Controllers\Concerns\RespondsWithOptions;
 use App\Http\Requests\UserStoreRequest;
 use App\Http\Requests\UserUpdateRequest;
 use App\Http\Controllers\Controller;
@@ -12,6 +13,21 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class UsersController extends Controller
 {
+    use RespondsWithOptions;
+
+    /**
+     * Opciones livianas para selects/filtros: {"data":[{id,name,role_id}]}.
+     * Mismo permiso que index (roles 1, 2, 4). Sin caché de servidor.
+     */
+    public function options(Request $request)
+    {
+        abort_unless(in_array((int) optional($request->user())->role_id, [1, 2, 4], true), 403);
+
+        $rows = User::orderBy('name')->orderBy('id')->get(['id', 'name', 'role_id'])->toArray();
+
+        return $this->optionsResponse($request, $rows);
+    }
+
     /**
      * List all resource.
      *

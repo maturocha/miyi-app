@@ -6,6 +6,7 @@ use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Http\Controllers\Concerns\RespondsWithOptions;
 use App\Http\Resources\AccountEntryResource;
 use App\Http\Resources\CustomerResource;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,32 @@ use Carbon\Carbon;
 
 class CustomersController extends Controller
 {
+    use RespondsWithOptions;
+
+    /**
+     * Búsqueda liviana para selects: {"data":[{id,name}]}, máx. 30 filas.
+     * ?search= filtra por name/fullname (igual que index); sin search devuelve
+     * los primeros 30 por nombre. Excluye eliminados. Sin caché de servidor.
+     */
+    public function options(Request $request)
+    {
+        $search = $request->input('search');
+
+        $rows = Customer::query()
+            ->when(is_string($search) && $search !== '', function ($query) use ($search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('customers.fullname', 'like', "%{$search}%")
+                      ->orWhere('customers.name', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('customers.name')->orderBy('customers.id')
+            ->limit(30)
+            ->get(['customers.id', 'customers.name'])
+            ->toArray();
+
+        return $this->optionsResponse($request, $rows);
+    }
+
     /**
      * List all resource.
      *

@@ -51,6 +51,7 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::resource('roles', 'RolesController');
                 
+                Route::get('users/options', 'UsersController@options');
                 Route::resource('users', 'UsersController', ['except' => ['edit', 'create']]);
                 Route::prefix('users')->name('users.')->group(function () {
                     Route::patch('{user}/restore', 'UsersController@restore')->name('restore');
@@ -76,6 +77,7 @@ Route::namespace('Api')->name('api.')->group(function () {
 
                 Route::resource('details', 'OrdersDetailsController');
 
+                Route::get('customers/options', 'CustomersController@options');
                 Route::resource('customers', 'CustomersController');
                 Route::get('customers/{id}/account-entries', 'CustomersController@accountEntries');
                 Route::get('customers/{id}/account-summary', 'CustomersController@accountSummary');
@@ -90,12 +92,16 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::patch('account-entries/{account_entry}', 'AccountEntriesController@update');
                 Route::delete('account-entries/{account_entry}', 'AccountEntriesController@destroy');
 
+                Route::get('providers/options', 'ProvidersController@options');
                 Route::resource('providers', 'ProvidersController');
 
+                Route::get('zones/options', 'ZonesController@options');
                 Route::resource('zones', 'ZonesController');
 
+                Route::get('neighborhoods/options', 'NeighborhoodController@options');
                 Route::resource('neighborhoods', 'NeighborhoodController');
 
+                Route::get('categories/options', 'CategoriesController@options');
                 Route::resource('categories', 'CategoriesController');
 
                 Route::resource('products', 'ProductsController');
