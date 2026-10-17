@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Http\Controllers\Api\V1\ImageController;
 use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RespondsWithOptions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -18,6 +19,47 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ProductsController extends Controller
 {
+    use RespondsWithOptions;
+
+    /**
+     * GET /products/options: {"data":[{id,name}]} para selects/autocomplete.
+     * `ids=1,2,3` (máx. 50) hidrata opciones elegidas; si no, `search=` (mismos campos que
+     * el index: code_miyi o name, por palabra), máx. 30, orden name, id. Sin caché en
+     * servidor (productos es dato operativo); solo ETag.
+     */
+    public function options(Request $request)
+    {
+        $query = Product::query();
+
+        $ids = $request->input('ids');
+        if (is_string($ids) && trim($ids) !== '') {
+            $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $ids)), function ($id) {
+                return $id > 0;
+            })));
+            $query->whereIn('products.id', array_slice($ids, 0, 50))->limit(50);
+        } else {
+            $search = $request->input('search');
+            if (is_string($search) && trim($search) !== '') {
+                $searchTerms = preg_split('/\s+/', trim($search));
+                $query->where(function ($q) use ($searchTerms) {
+                    foreach ($searchTerms as $term) {
+                        $q->where(function ($subQuery) use ($term) {
+                            $subQuery->where('code_miyi', 'like', "%{$term}%")
+                                ->orWhere('name', 'like', "%{$term}%");
+                        });
+                    }
+                });
+            }
+            $query->limit(30);
+        }
+
+        $rows = $query->orderBy('products.name')->orderBy('products.id')
+            ->get(['products.id', 'products.name'])
+            ->toArray();
+
+        return $this->optionsResponse($request, $rows);
+    }
+
     /**
      * List all resource.
      *

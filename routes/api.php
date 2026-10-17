@@ -104,6 +104,7 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::get('categories/options', 'CategoriesController@options');
                 Route::resource('categories', 'CategoriesController');
 
+                Route::get('products/options', 'ProductsController@options');
                 Route::resource('products', 'ProductsController');
                 Route::get('products/{id}/sales-history', 'ProductsController@salesHistory');
                 Route::get('products/{id}/stock-history', 'ProductsController@stockHistory');
