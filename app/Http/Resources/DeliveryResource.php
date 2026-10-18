@@ -17,13 +17,6 @@ class DeliveryResource extends JsonResource
      */
     public function toArray($request)
     {
-        $fromOrders = $this->collectedByPaymentMethodFromOrders();
-        $offRoute = $this->collectedByPaymentMethodOffRoute();
-
-        $totalCollected = (float) (array_sum($fromOrders) + array_sum($offRoute));
-        $cashCollected = (float) (($fromOrders[PaymentMethod::CASH] ?? 0) + ($offRoute[PaymentMethod::CASH] ?? 0));
-        $netAmount = $totalCollected - ($this->expenses_amount ?? 0);
-
         return [
             'data' => [
                 'id' => $this->id,
@@ -45,23 +38,54 @@ class DeliveryResource extends JsonResource
                 'orders_count' => $this->when($this->relationLoaded('deliveryOrders'), function () {
                     return $this->deliveryOrders->count();
                 }),
-                'totals' => [
-                    'collected' => (float) $totalCollected,
-                    'cash_collected' => (float) $cashCollected,
-                    'expenses' => (float) ($this->expenses_amount ?? 0),
-                    'net' => (float) $netAmount,
-                    'sales_total' => $this->when($this->relationLoaded('deliveryOrders'), function () {
-                        return (float) $this->deliveryOrders->sum(function ($row) {
-                            return $row->relationLoaded('order') && $row->order
-                                ? (float) ($row->order->total ?? 0)
-                                : 0;
-                        });
-                    }),
-                ],
+                'totals' => $this->totals(),
                 'account_entries' => AccountEntryResource::collection($this->whenLoaded('accountEntries')),
                 'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
                 'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,
             ]
         ];
+    }
+
+    /**
+     * Totales del reparto (mismo objeto que `data.totals` del show). Si
+     * `deliveryOrders.payments` / `accountEntries` ya están cargados se calcula
+     * en memoria; si no, con las queries de agregado del modelo.
+     * `sales_total` solo cuando `deliveryOrders` está cargado.
+     *
+     * @return array
+     */
+    public function totals(): array
+    {
+        $ordersWithPayments = $this->relationLoaded('deliveryOrders')
+            && $this->deliveryOrders->every(function ($row) {
+                return $row->relationLoaded('payments');
+            });
+        $fromOrders = $ordersWithPayments
+            ? $this->collectedByPaymentMethodFromLoadedOrders()
+            : $this->collectedByPaymentMethodFromOrders();
+        $offRoute = $this->relationLoaded('accountEntries')
+            ? $this->collectedByPaymentMethodOffRouteFromEntries($this->accountEntries)
+            : $this->collectedByPaymentMethodOffRoute();
+
+        $totalCollected = (float) (array_sum($fromOrders) + array_sum($offRoute));
+        $cashCollected = (float) (($fromOrders[PaymentMethod::CASH] ?? 0) + ($offRoute[PaymentMethod::CASH] ?? 0));
+        $netAmount = $totalCollected - ($this->expenses_amount ?? 0);
+
+        $totals = [
+            'collected' => (float) $totalCollected,
+            'cash_collected' => (float) $cashCollected,
+            'expenses' => (float) ($this->expenses_amount ?? 0),
+            'net' => (float) $netAmount,
+        ];
+
+        if ($this->relationLoaded('deliveryOrders')) {
+            $totals['sales_total'] = (float) $this->deliveryOrders->sum(function ($row) {
+                return $row->relationLoaded('order') && $row->order
+                    ? (float) ($row->order->total ?? 0)
+                    : 0;
+            });
+        }
+
+        return $totals;
     }
 }

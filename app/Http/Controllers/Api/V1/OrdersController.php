@@ -254,10 +254,19 @@ class OrdersController extends Controller
     protected function paginatedQuery(Request $request) : LengthAwarePaginator
     {
         $user = Auth::user();
+        $direction = $this->sortDirection($request, 'DESC');
 
-        $orders = Order::leftJoin('customers','customers.id','=','orders.id_customer')
-            ->leftJoin('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
-            ->leftJoin('zones','zones.id','=','neighborhoods.id_zone')
+        // Paso 1 (F2-09): paginar solo ids de `orders` con los filtros. Los
+        // joins de zona se hacen solo si se filtra por zona (customers,
+        // neighborhoods y zones se unen por PK, no multiplican filas), así
+        // el orden `date, id` sale de orders_date_id_idx /
+        // orders_user_date_id_idx sin filesort.
+        $page = Order::query()
+            ->when($request->filled('id_zone'), function ($query) {
+                $query->leftJoin('customers','customers.id','=','orders.id_customer')
+                    ->leftJoin('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
+                    ->leftJoin('zones','zones.id','=','neighborhoods.id_zone');
+            })
             ->when(($user->role_id <> 1 && $user->role_id <> 3), function ($query) use ($user) {
                     $query->where('id_user', '=', $user->id);
             })
@@ -286,12 +295,23 @@ class OrdersController extends Controller
                     $query->where('orders.status', $status);
                 }
             })
-             ->orderBy(
-                'orders.date',
-                $this->sortDirection($request, 'DESC'))
-                ->orderBy(
-                    'orders.id',
-                    $this->sortDirection($request, 'DESC'))
+            ->orderBy('orders.date', $direction)
+            ->orderBy('orders.id', $direction)
+            ->paginate($this->perPage($request, 40, 1000), ['orders.id']);
+
+        $ids = $page->getCollection()->pluck('id')->all();
+
+        if (empty($ids)) {
+            return $page;
+        }
+
+        // Paso 2: filas completas, joins y flags solo para los ids de la página.
+        $orders = Order::leftJoin('customers','customers.id','=','orders.id_customer')
+            ->leftJoin('neighborhoods','neighborhoods.id','=','customers.id_neighborhood')
+            ->leftJoin('zones','zones.id','=','neighborhoods.id_zone')
+            ->whereIn('orders.id', $ids)
+            ->orderBy('orders.date', $direction)
+            ->orderBy('orders.id', $direction)
             ->select(
                 'orders.*',
                 'customers.name as customer',
@@ -308,9 +328,10 @@ class OrdersController extends Controller
             ->selectRaw(
                 "EXISTS (SELECT 1 FROM delivery_orders dw WHERE dw.order_id = orders.id AND dw.delivery_status = ?) as was_delivered",
                 [DeliveryOrderStatus::DELIVERED]
-            );
+            )
+            ->get();
 
-        return $orders->paginate($this->perPage($request, 40, 1000));
+        return $page->setCollection($orders);
     }
 
     /**

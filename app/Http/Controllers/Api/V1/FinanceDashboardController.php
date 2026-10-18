@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 
 class FinanceDashboardController extends Controller
 {
+    const MAX_RANGE_DAYS = 366;
+
     /** @var FinanceDashboardService */
     protected $service;
 
@@ -30,6 +32,10 @@ class FinanceDashboardController extends Controller
 
         if (!$dateFrom || !$dateTo) {
             return response()->json(['message' => 'date_from and date_to are required'], 422);
+        }
+
+        if ($this->exceedsMaxRange($dateFrom, $dateTo)) {
+            return $this->maxRangeResponse();
         }
 
         $filters = [
@@ -55,6 +61,10 @@ class FinanceDashboardController extends Controller
             return response()->json(['message' => 'date_from and date_to are required'], 422);
         }
 
+        if ($this->exceedsMaxRange($dateFrom, $dateTo)) {
+            return $this->maxRangeResponse();
+        }
+
         $filters = [
             'date_from' => Carbon::parse($dateFrom)->format('Y-m-d'),
             'date_to' => Carbon::parse($dateTo)->format('Y-m-d'),
@@ -70,5 +80,17 @@ class FinanceDashboardController extends Controller
         return response()->json($this->service->productsBreakdown($filters));
     }
 
-}
+    /**
+     * Tope de rango: 366 días inclusive (un año completo, también bisiesto).
+     * Con date_from > date_to la diferencia es negativa y no se bloquea (comportamiento previo).
+     */
+    private function exceedsMaxRange(string $dateFrom, string $dateTo): bool
+    {
+        return Carbon::parse($dateFrom)->startOfDay()->diffInDays(Carbon::parse($dateTo)->startOfDay(), false) >= self::MAX_RANGE_DAYS;
+    }
 
+    private function maxRangeResponse(): JsonResponse
+    {
+        return response()->json(['message' => 'date range cannot exceed ' . self::MAX_RANGE_DAYS . ' days'], 422);
+    }
+}

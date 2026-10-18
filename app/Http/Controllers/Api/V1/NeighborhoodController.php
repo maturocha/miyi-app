@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Neighborhood;
+use App\Http\Controllers\Concerns\RespondsWithOptions;
 use DB;
 
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,21 @@ use Carbon\Carbon;
 
 class NeighborhoodController extends Controller
 {
+    use RespondsWithOptions;
+
+    /**
+     * Opciones livianas para selects/filtros: {"data":[{id,name,id_zone}]}.
+     * Caché ≤ 60 s en servidor (se invalida en store/update/destroy/restore).
+     */
+    public function options(Request $request)
+    {
+        $rows = $this->rememberOptions('neighborhoods', function () {
+            return Neighborhood::orderBy('name')->orderBy('id')->get(['id', 'name', 'id_zone'])->toArray();
+        });
+
+        return $this->optionsResponse($request, $rows);
+    }
+
     /**
      * List all resource.
      *
@@ -44,6 +60,8 @@ class NeighborhoodController extends Controller
             'name' => $request->input('name'),
             'id_zone' => $request->input('id_zone', '')
         ]);
+
+        self::forgetOptions('neighborhoods');
 
         return response()->json($neighborhood, 201);
     }
@@ -76,6 +94,7 @@ class NeighborhoodController extends Controller
         
         $neighborhood->fill($attributes);
         $neighborhood->update();
+        self::forgetOptions('neighborhoods');
 
         return response()->json($neighborhood);
     }
@@ -91,6 +110,7 @@ class NeighborhoodController extends Controller
     public function destroy(Request $request, Neighborhood $neighborhood) : JsonResponse
     {
         $neighborhood->delete();
+        self::forgetOptions('neighborhoods');
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -108,6 +128,7 @@ class NeighborhoodController extends Controller
         $neighborhood = Neighborhood::withTrashed()->where('id', $id)->first();
         $neighborhood->deleted_at = null;
         $neighborhood->update();
+        self::forgetOptions('neighborhoods');
 
         return response()->json($this->paginatedQuery($request));
     }

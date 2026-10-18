@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Category;
+use App\Http\Controllers\Concerns\RespondsWithOptions;
 use DB;
 
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,21 @@ use Carbon\Carbon;
 
 class CategoriesController extends Controller
 {
+    use RespondsWithOptions;
+
+    /**
+     * Opciones livianas para selects/filtros: {"data":[{id,name}]}.
+     * Caché ≤ 60 s en servidor (se invalida en store/update/destroy/restore).
+     */
+    public function options(Request $request)
+    {
+        $rows = $this->rememberOptions('categories', function () {
+            return Category::orderBy('name')->orderBy('id')->get(['id', 'name'])->toArray();
+        });
+
+        return $this->optionsResponse($request, $rows);
+    }
+
     /**
      * List all resource.
      *
@@ -44,6 +60,8 @@ class CategoriesController extends Controller
             'name' => $request->input('name'),
             'slug' => _clean_string($request->input('name')),
         ]);
+
+        self::forgetOptions('categories');
 
         return response()->json($category, 201);
     }
@@ -77,6 +95,7 @@ class CategoriesController extends Controller
             'slug' => _clean_string($request->input('name')),
         ]);
         $category->update();
+        self::forgetOptions('categories');
 
         return response()->json($category);
     }
@@ -92,6 +111,7 @@ class CategoriesController extends Controller
     public function destroy(Request $request, Category $category) : JsonResponse
     {
         $category->delete();
+        self::forgetOptions('categories');
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -109,6 +129,7 @@ class CategoriesController extends Controller
         $category = Category::withTrashed()->where('id', $id)->first();
         $category->deleted_at = null;
         $category->update();
+        self::forgetOptions('categories');
 
         return response()->json($this->paginatedQuery($request));
     }

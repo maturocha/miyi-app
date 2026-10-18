@@ -16,6 +16,7 @@ use App\Http\Requests\DeliveryUpdateRequest;
 use App\Http\Requests\DeliveryAddOrderRequest;
 use App\Http\Requests\DeliveryOrderUpdateRequest;
 use App\Http\Resources\AccountEntryResource;
+use App\Http\Resources\DeliveryOrderResource;
 use App\Http\Resources\DeliveryResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,25 @@ use Illuminate\Support\Facades\DB;
 
 class DeliveriesController extends Controller
 {
+    /** Roles que ven el detalle de cualquier reparto: admin (1) y Administración (4). Los demás, solo si son dueños. */
+    const DETAIL_ROLES = [1, 4];
+
     protected $deliveryService;
+
+    /**
+     * Detalle, cobros y cargas de un reparto (y `totals` del POST de cobro): admin /
+     * Administración, o el dueño. Ids comparados como int (la DB puede traer strings).
+     */
+    public static function canViewDetail($user, Delivery $delivery): bool
+    {
+        if (!$user) {
+            return false;
+        }
+        if (in_array((int) $user->role_id, self::DETAIL_ROLES, true)) {
+            return true;
+        }
+        return $delivery->owner_user_id !== null && (int) $delivery->owner_user_id === (int) $user->id;
+    }
 
     public function __construct(DeliveryService $deliveryService)
     {
@@ -81,13 +100,13 @@ class DeliveriesController extends Controller
             return response()->json(['data' => 'Resource not found'], 404);
         }
 
-        // Check permissions: repartidores solo pueden ver si son owner
+        // Check permissions: admin / administración, o el dueño del reparto
         $user = Auth::user();
-        if (!in_array($user->role_id, [1, 3]) && $delivery->owner_user_id !== $user->id) {
+        if (!self::canViewDetail($user, $delivery)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $deliveryOrderIds = $delivery->deliveryOrders()->pluck('id');
+        $deliveryOrderIds = $delivery->deliveryOrders->pluck('id');
         $accountEntries = AccountEntry::query()
             ->with(['customer:id,name', 'createdByUser:id,name', 'paymentMethods'])
             ->where(function ($q) use ($delivery, $deliveryOrderIds) {
@@ -100,6 +119,8 @@ class DeliveriesController extends Controller
             ->orderByDesc('occurred_at')
             ->get();
         $delivery->setRelation('accountEntries', $accountEntries);
+        // Todos los asientos son de este reparto: contexto sin queries extra (N+1).
+        AccountEntrySourceHelper::rememberDelivery($delivery, $deliveryOrderIds);
 
         return (new DeliveryResource($delivery))->response()->setStatusCode(200);
     }
@@ -114,7 +135,7 @@ class DeliveriesController extends Controller
     public function accountEntries(Request $request, Delivery $delivery): JsonResponse
     {
         $user = Auth::user();
-        if (!in_array($user->role_id, [1, 3]) && $delivery->owner_user_id !== $user->id) {
+        if (!self::canViewDetail($user, $delivery)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -149,7 +170,7 @@ class DeliveriesController extends Controller
         }
 
         $user = Auth::user();
-        if (!in_array($user->role_id, [1, 3]) && $delivery->owner_user_id !== $user->id) {
+        if (!self::canViewDetail($user, $delivery)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -331,9 +352,14 @@ class DeliveriesController extends Controller
             ], 422);
         }
 
+        $fresh = $this->deliveryService->loadForOperationResponse((int) $delivery->id);
+
         return response()->json([
             'success' => true,
             'message' => 'Pedido actualizado correctamente.',
+            // Mismo elemento que `data.orders[]` y mismos `data.totals` de GET /deliveries/{id}.
+            'delivery_order' => $this->deliveryOrderPayload($fresh, (int) $order->id),
+            'totals' => (new DeliveryResource($fresh))->totals(),
         ]);
     }
 
@@ -360,10 +386,42 @@ class DeliveriesController extends Controller
             $request->input('expenses_notes')
         );
 
+        $fresh = $this->deliveryService->loadForOperationResponse((int) $delivery->id);
+
         return response()->json([
             'success' => true,
             'message' => 'Gastos actualizados correctamente.',
+            'expenses_amount' => (float) ($fresh->expenses_amount ?? 0),
+            'totals' => (new DeliveryResource($fresh))->totals(),
         ]);
+    }
+
+    /**
+     * Elemento de `orders` del show (DeliveryOrderResource con order.customer.neighborhood.zone
+     * y payments) para un pedido del reparto ya releído.
+     *
+     * @param Delivery $delivery con deliveryOrders.payments y deliveryOrders.order cargados
+     * @param int $orderId
+     * @return array|null
+     */
+    protected function deliveryOrderPayload(Delivery $delivery, int $orderId): ?array
+    {
+        $deliveryOrder = $delivery->deliveryOrders->first(function ($row) use ($orderId) {
+            return (int) $row->order_id === $orderId;
+        });
+        if (!$deliveryOrder) {
+            return null;
+        }
+
+        if ($deliveryOrder->order) {
+            $deliveryOrder->order->load([
+                'customer:id,name,address,cellphone,current_balance,id_neighborhood',
+                'customer.neighborhood:id,name,id_zone',
+                'customer.neighborhood.zone:id,name',
+            ]);
+        }
+
+        return (new DeliveryOrderResource($deliveryOrder))->resolve();
     }
 
     /**
@@ -495,10 +553,10 @@ class DeliveriesController extends Controller
                 $query->where('owner_user_id', $user->id);
             })
             ->when($request->has('date_from'), function ($query) use ($request) {
-                $query->whereDate('delivery_date', '>=', $request->input('date_from'));
+                $query->where('delivery_date', '>=', $request->input('date_from'));
             })
             ->when($request->has('date_to'), function ($query) use ($request) {
-                $query->whereDate('delivery_date', '<=', $request->input('date_to'));
+                $query->where('delivery_date', '<=', $request->input('date_to'));
             })
             ->when($request->has('status'), function ($query) use ($request) {
                 $query->where('status', $request->input('status'));

@@ -13,11 +13,15 @@ class FinanceDashboardService
         $dateFrom = $filters['date_from'];
         $dateTo = $filters['date_to'];
 
-        $curr = $this->computeAggregates($filters, $dateFrom, $dateTo);
+        // Cobrado por zona: se reutiliza para el KPI total (las filas por zona particionan
+        // las mismas entradas y los montos son DECIMAL, así que la suma es exacta).
+        $collectedByZone = $this->collectionsByZone($dateFrom, $dateTo, $filters);
+
+        $curr = $this->computeAggregates($filters, $dateFrom, $dateTo, $collectedByZone);
 
         $kpis = $this->buildKpis($curr);
         $series = $this->buildSeries($filters, $dateFrom, $dateTo);
-        $breakdowns = $this->buildBreakdowns($filters, $dateFrom, $dateTo);
+        $breakdowns = $this->buildBreakdowns($filters, $dateFrom, $dateTo, $collectedByZone);
         $recaudacionesRows = $this->buildRecaudacionesRows($filters, $dateFrom, $dateTo);
         $topCustomers = $this->topCustomers($dateFrom, $dateTo, $filters);
 
@@ -136,7 +140,7 @@ class FinanceDashboardService
         ];
     }
 
-    private function computeAggregates(array $filters, string $dateFrom, string $dateTo): array
+    private function computeAggregates(array $filters, string $dateFrom, string $dateTo, $collectedByZone): array
     {
         $sold = $this->ordersQuery($dateFrom, $dateTo, $filters)
             ->select([
@@ -145,11 +149,15 @@ class FinanceDashboardService
             ])
             ->first();
 
-        $collections = $this->collectionsTotals($dateFrom, $dateTo, $filters);
+        // Mismo resultado que collectionsTotals() sin otra query: suma en centavos enteros para no acumular error de float.
+        $collectedCents = 0;
+        foreach ($collectedByZone as $row) {
+            $collectedCents += (int) round((float) $row->collected_total * 100);
+        }
 
         $soldTotal = $this->round2((float) ($sold ? $sold->sold_total : 0));
         $ordersCount = (int) ($sold ? $sold->orders_count : 0);
-        $collectedTotal = $this->round2((float) $collections['total']);
+        $collectedTotal = $this->round2($collectedCents / 100);
 
         return [
             'sold_total' => $soldTotal,
@@ -196,10 +204,10 @@ class FinanceDashboardService
         ];
     }
 
-    private function buildBreakdowns(array $filters, string $dateFrom, string $dateTo): array
+    private function buildBreakdowns(array $filters, string $dateFrom, string $dateTo, $collectedByZone): array
     {
         $byPaymentMethod = $this->collectionsByPaymentMethod($dateFrom, $dateTo, $filters);
-        $byZone = $this->breakdownByZone($dateFrom, $dateTo, $filters);
+        $byZone = $this->breakdownByZone($dateFrom, $dateTo, $filters, $collectedByZone);
 
         return [
             'by_payment_method' => $byPaymentMethod,
@@ -207,7 +215,7 @@ class FinanceDashboardService
         ];
     }
 
-    private function breakdownByZone(string $dateFrom, string $dateTo, array $filters): array
+    private function breakdownByZone(string $dateFrom, string $dateTo, array $filters, $collected): array
     {
         $sold = $this->ordersQuery($dateFrom, $dateTo, $filters)
             ->select([
@@ -219,7 +227,6 @@ class FinanceDashboardService
             ->groupBy('z.id', 'z.name')
             ->get();
 
-        $collected = $this->collectionsByZone($dateFrom, $dateTo, $filters);
         $collectedMap = [];
         foreach ($collected as $row) {
             $collectedMap[(int) $row->zone_id] = (float) $row->collected_total;
@@ -379,12 +386,24 @@ class FinanceDashboardService
 
     private function paymentMethodsSubquery(string $dateFrom, string $dateTo)
     {
-        // Sum payment method lines per entry (for filtering and breakdowns)
+        $fromTs = Carbon::parse($dateFrom)->startOfDay()->format('Y-m-d H:i:s');
+        $toTs = Carbon::parse($dateTo)->endOfDay()->format('Y-m-d H:i:s');
+
+        // Sum payment method lines per entry (for filtering and breakdowns).
+        // Acotada a las entradas del rango con el mismo criterio que las queries externas
+        // que la joinean (occurred_at + payment/credit), para no agrupar toda la tabla.
         return DB::table('account_entry_payment_methods as aepm')
             ->select([
                 'aepm.account_entry_id',
                 DB::raw('SUM(aepm.amount) as total_lines'),
             ])
+            ->whereIn('aepm.account_entry_id', function ($sub) use ($fromTs, $toTs) {
+                $sub->select('ae_r.id')
+                    ->from('account_entries as ae_r')
+                    ->whereBetween('ae_r.occurred_at', [$fromTs, $toTs])
+                    ->where('ae_r.type', 'payment')
+                    ->where('ae_r.direction', 'credit');
+            })
             ->groupBy('aepm.account_entry_id');
     }
 

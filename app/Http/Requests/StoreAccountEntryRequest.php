@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\AccountEntry;
 use App\Models\Delivery;
 use App\Models\Enums\AccountEntryDirection;
 use App\Models\Enums\DeliveryStatus;
@@ -16,8 +17,39 @@ class StoreAccountEntryRequest extends FormRequest
         return $this->user()->can('create', \App\Models\AccountEntry::class);
     }
 
+    /** Regla de forma de la clave de idempotencia (única regla en un replay). */
+    const IDEMPOTENCY_KEY_RULES = ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'];
+
+    /** @var AccountEntry|null|false false = todavía no se buscó */
+    protected $replayEntry = false;
+
+    /**
+     * Asiento ya creado por este usuario con la `idempotency_key` recibida (o null).
+     * Solo se busca si la clave tiene forma válida.
+     */
+    public function replayEntry(): ?AccountEntry
+    {
+        if ($this->replayEntry === false) {
+            $this->replayEntry = null;
+            $key = $this->input('idempotency_key');
+            if (is_string($key) && strlen($key) <= 64 && preg_match('/^[A-Za-z0-9_-]+$/', $key) && $this->user()) {
+                $this->replayEntry = AccountEntry::with('paymentMethods')
+                    ->where('created_by_user_id', $this->user()->id)
+                    ->where('idempotency_key', $key)
+                    ->first();
+            }
+        }
+        return $this->replayEntry;
+    }
+
     public function rules()
     {
+        // Reintento de un cobro ya creado: solo se valida la clave, así un cambio posterior
+        // (p. ej. reparto cerrado) no convierte el replay en 422.
+        if ($this->replayEntry()) {
+            return ['idempotency_key' => self::IDEMPOTENCY_KEY_RULES];
+        }
+
         return [
             'customer_id' => 'required|exists:customers,id',
             'type' => 'required|in:' . implode(',', AccountEntryType::all()),
@@ -41,6 +73,8 @@ class StoreAccountEntryRequest extends FormRequest
             'lines.*.method' => 'required_with:lines|string|in:' . implode(',', PaymentMethod::all()),
             'lines.*.amount' => 'required_with:lines|numeric|min:0.01|max:99999999.99',
             'lines.*.reference' => 'nullable|string|max:191',
+            // Opcional: reintentos con la misma clave devuelven el asiento ya creado.
+            'idempotency_key' => self::IDEMPOTENCY_KEY_RULES,
         ];
     }
 }

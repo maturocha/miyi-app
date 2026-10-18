@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Zone;
+use App\Http\Controllers\Concerns\RespondsWithOptions;
 use DB;
 
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,21 @@ use Carbon\Carbon;
 
 class ZonesController extends Controller
 {
+    use RespondsWithOptions;
+
+    /**
+     * Opciones livianas para selects/filtros: {"data":[{id,name,code}]}.
+     * Caché ≤ 60 s en servidor (se invalida en store/update/destroy/restore).
+     */
+    public function options(Request $request)
+    {
+        $rows = $this->rememberOptions('zones', function () {
+            return Zone::orderBy('name')->orderBy('id')->get(['id', 'name', 'code'])->toArray();
+        });
+
+        return $this->optionsResponse($request, $rows);
+    }
+
     /**
      * List all resource.
      *
@@ -44,6 +60,8 @@ class ZonesController extends Controller
             'name' => $request->input('name'),
             'code' => $request->input('code'),
         ]);
+
+        self::forgetOptions('zones', 'neighborhoods');
 
         return response()->json($zone, 201);
     }
@@ -76,6 +94,7 @@ class ZonesController extends Controller
         
         $zone->fill($attributes);
         $zone->update();
+        self::forgetOptions('zones', 'neighborhoods');
 
         return response()->json($zone);
     }
@@ -91,6 +110,7 @@ class ZonesController extends Controller
     public function destroy(Request $request, Zone $zone) : JsonResponse
     {
         $zone->delete();
+        self::forgetOptions('zones', 'neighborhoods');
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -108,6 +128,7 @@ class ZonesController extends Controller
         $zone = Zone::withTrashed()->where('id', $id)->first();
         $zone->deleted_at = null;
         $zone->update();
+        self::forgetOptions('zones', 'neighborhoods');
 
         return response()->json($this->paginatedQuery($request));
     }

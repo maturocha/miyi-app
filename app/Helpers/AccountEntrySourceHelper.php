@@ -57,6 +57,21 @@ class AccountEntrySourceHelper
         }
     }
 
+    /**
+     * Registra un reparto ya cargado y sus delivery_orders (ids) para que
+     * resolveDeliveryContext no consulte nada para los asientos de ese reparto.
+     *
+     * @param Delivery $delivery
+     * @param iterable $deliveryOrderIds
+     */
+    public static function rememberDelivery(Delivery $delivery, $deliveryOrderIds): void
+    {
+        self::$deliveries[(int) $delivery->id] = $delivery;
+        foreach ($deliveryOrderIds as $doId) {
+            self::$deliveryOrderToDelivery[(int) $doId] = (int) $delivery->id;
+        }
+    }
+
     protected static function findDelivery(int $id): ?Delivery
     {
         if (!array_key_exists($id, self::$deliveries)) {

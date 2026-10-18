@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Models\Provider;
+use App\Http\Controllers\Concerns\RespondsWithOptions;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -12,6 +13,25 @@ use Carbon\Carbon;
 
 class ProvidersController extends Controller
 {
+    use RespondsWithOptions;
+
+    /**
+     * Opciones livianas para selects/filtros: {"data":[{id,name}]} (name = fullname).
+     * Caché ≤ 60 s en servidor (se invalida en store/update/destroy/restore).
+     */
+    public function options(Request $request)
+    {
+        $rows = $this->rememberOptions('providers', function () {
+            return Provider::orderBy('fullname')->orderBy('id')
+                ->get(['id', 'fullname'])
+                ->map(function ($p) {
+                    return ['id' => $p->id, 'name' => $p->fullname];
+                })->all();
+        });
+
+        return $this->optionsResponse($request, $rows);
+    }
+
     /**
      * List all resource.
      *
@@ -36,6 +56,7 @@ class ProvidersController extends Controller
 
         $values = $request->all();
         $provider = Provider::create($values);
+        self::forgetOptions('providers');
 
         if ($provider) {
             $response = response()->json($provider, 201);
@@ -82,6 +103,7 @@ class ProvidersController extends Controller
         
         $provider->fill($attributes);
         $provider->update();
+        self::forgetOptions('providers');
 
         return response()->json($provider);
     }
@@ -97,6 +119,7 @@ class ProvidersController extends Controller
     public function destroy(Request $request, Provider $provider) : JsonResponse
     {
         $provider->delete();
+        self::forgetOptions('providers');
 
         return response()->json($this->paginatedQuery($request));
     }
@@ -114,6 +137,7 @@ class ProvidersController extends Controller
         $provider = Provider::withTrashed()->where('id', $id)->first();
         $provider->deleted_at = null;
         $provider->update();
+        self::forgetOptions('providers');
 
         return response()->json($this->paginatedQuery($request));
     }
