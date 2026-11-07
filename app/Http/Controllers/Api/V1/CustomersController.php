@@ -88,6 +88,7 @@ class CustomersController extends Controller
 
         $request->validate([
             'type' => 'sometimes|required|in:' . implode(',', CustomerType::all()),
+            'birthday' => 'sometimes|nullable|date_format:Y-m-d|before_or_equal:today',
         ]);
 
         $values = $request->all();
@@ -226,6 +227,7 @@ class CustomersController extends Controller
 
         $request->validate([
             'type' => 'sometimes|required|in:' . implode(',', CustomerType::all()),
+            'birthday' => 'sometimes|nullable|date_format:Y-m-d|before_or_equal:today',
         ]);
 
         $attributes = $request->all();
@@ -336,6 +338,7 @@ class CustomersController extends Controller
                 'type' => 'customers.type',
                 'current_balance' => 'customers.current_balance',
                 'time_visit' => 'customers.time_visit',
+                'birthday' => 'customers.birthday',
                 'created_at' => 'customers.created_at',
                 'updated_at' => 'customers.updated_at',
             ], 'customers.name'),

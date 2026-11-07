@@ -7,6 +7,7 @@ Lógica de negocio del API, organizada por módulo. Cada módulo tiene un `index
 | [Repartos](repartos/index.md) | Armado, operación en ruta, cierre y cuenta corriente |
 | [Pedidos](orders/index.md) | Estados, alta y edición, totales, reglas según el reparto |
 | [Productos](productos/index.md) | Catálogo, precios, stock y promociones |
+| [Clientes](clientes/index.md) | Ficha, tipo, saldo y cumpleaños |
 
 ## Convenciones
 

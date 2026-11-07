@@ -16,11 +16,12 @@ class Customer extends Model
   // current_balance fuera de fillable: solo lo mueve UpdateCustomerBalanceService
   // (ledger). Con fill($request->all()) un form con saldo viejo lo pisaba.
   protected $fillable = [
-        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type'
+        'cuit', 'fullname', 'name', 'email', 'address', 'time_visit', 'id_neighborhood', 'lat', 'long', 'cellphone', 'telephone', 'type', 'birthday'
   ];
 
   protected $casts = [
         'current_balance' => 'decimal:2',
+        'birthday' => 'date:Y-m-d',
   ];
 
   public function neighborhood()
