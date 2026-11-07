@@ -52,7 +52,7 @@ class OrdersController extends Controller
     {
         $order = Order::with([
             'user:id,name',
-            'customer:id,name,address,time_visit,cellphone',
+            'customer:id,name,address,time_visit,cellphone,type',
             'customer.neighborhood:id,name',
             'customer.neighborhood.zone:id,name',
             'details.promotion:id,name,type',

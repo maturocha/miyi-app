@@ -32,7 +32,8 @@ class AccountEntriesController extends Controller
 
         $query = AccountEntry::query()
             ->with(['customer:id,name', 'createdByUser:id,name', 'paymentMethods'])
-            ->orderByDesc('occurred_at');
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('account_entries.id');
 
         if ($request->filled('customer_id')) {
             $query->where('customer_id', (int) $request->input('customer_id'));

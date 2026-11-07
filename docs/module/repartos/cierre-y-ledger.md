@@ -2,7 +2,7 @@
 
 Cómo un reparto genera y valida movimientos en la cuenta corriente (`account_entries`) de los clientes.
 
-Última revisión: 2026-09-27 (basado en el código actual). Reemplaza a `docs/delivery-ledger.md`.
+Última revisión: 2026-11-08 (basado en el código actual). Reemplaza a `docs/delivery-ledger.md`.
 
 ## Regla de oro
 
@@ -25,7 +25,10 @@ Las líneas de pago (`delivery_order_payments`) se copian a `account_entry_payme
 - Solo pedidos con `delivery_orders.delivery_status = delivered`.
 - **Un cargo por pedido, global**: si el pedido ya tiene un cargo `orders` (de cualquier reparto), no se crea otro.
 - Cada pedido se bloquea (`lockForUpdate`) antes de chequear y crear, y se usa **esa** fila para el monto. Esto evita duplicados entre repartos concurrentes y cargos con un total viejo.
-- Monto = `orders.total` al momento de finalizar. Fecha = `finished_at`.
+- Monto = `orders.total` al momento de finalizar.
+- Fecha del movimiento (`occurred_at`) = `deliveries.delivery_date` a las 12:00 (mediodía, para que un desfase de timezone no corra el día). Aplica igual a los cobros que se crean al cerrar, así que un reparto cerrado semanas después queda en la fecha en que se entregó. Sin `delivery_date`, cae a `finished_at` y, si tampoco hay, a `now()` (`DeliveryLedgerService::occurredAtFor`).
+- Los movimientos creados antes de 2026-11-08 siguen con `finished_at` (no se hizo backfill). Los listados desempatan por `id` descendente porque varios movimientos del mismo reparto comparten fecha y hora.
+- Los cobros extra durante la ruta y los movimientos manuales conservan su propia fecha.
 
 ## Revisión (reparto `finished`)
 

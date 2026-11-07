@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\Customer;
+use App\Models\Enums\CustomerType;
 use App\Models\Order;
 use App\Http\Controllers\Concerns\RespondsWithOptions;
 use App\Http\Resources\AccountEntryResource;
@@ -81,6 +82,15 @@ class CustomersController extends Controller
     public function store(Request $request) : JsonResponse
     {
 
+        if ($request->has('type')) {
+            $request->merge(['type' => CustomerType::fromLegacy($request->input('type'))]);
+        }
+
+        $request->validate([
+            'type' => 'sometimes|required|in:' . implode(',', CustomerType::all()),
+            'birthday' => 'sometimes|nullable|date_format:Y-m-d|before_or_equal:today',
+        ]);
+
         $values = $request->all();
 
         $customer = Customer::create($values);
@@ -119,7 +129,7 @@ class CustomersController extends Controller
         if (!$customer) {
             return response()->json(['message' => 'Customer not found'], 404);
         }
-        $query = AccountEntry::where('customer_id', $id)->with(['paymentMethods', 'createdByUser'])->orderByDesc('occurred_at');
+        $query = AccountEntry::where('customer_id', $id)->with(['paymentMethods', 'createdByUser'])->orderByDesc('occurred_at')->orderByDesc('id');
         if ($request->filled('date_from')) {
             $query->where('occurred_at', '>=', $request->input('date_from'));
         }
@@ -211,8 +221,17 @@ class CustomersController extends Controller
     public function update(Request $request, Customer $customer) : JsonResponse
     {
 
+        if ($request->has('type')) {
+            $request->merge(['type' => CustomerType::fromLegacy($request->input('type'))]);
+        }
+
+        $request->validate([
+            'type' => 'sometimes|required|in:' . implode(',', CustomerType::all()),
+            'birthday' => 'sometimes|nullable|date_format:Y-m-d|before_or_equal:today',
+        ]);
+
         $attributes = $request->all();
-        
+
         $customer->fill($attributes);
         $customer->update();
 
@@ -319,6 +338,7 @@ class CustomersController extends Controller
                 'type' => 'customers.type',
                 'current_balance' => 'customers.current_balance',
                 'time_visit' => 'customers.time_visit',
+                'birthday' => 'customers.birthday',
                 'created_at' => 'customers.created_at',
                 'updated_at' => 'customers.updated_at',
             ], 'customers.name'),

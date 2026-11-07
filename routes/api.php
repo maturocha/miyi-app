@@ -117,6 +117,9 @@ Route::namespace('Api')->name('api.')->group(function () {
                 Route::get('finance/dashboard', 'FinanceDashboardController@index');
                 Route::get('finance/dashboard/products', 'FinanceDashboardController@products');
 
+                // Página de Inicio (#56): resumen agregado por rol, una sola request.
+                Route::get('home', 'HomeController@index');
+
                 Route::resource('notifications', 'NotificationsController', ['except' => ['edit', 'create']]);
 
                 Route::resource('deliveries', 'DeliveriesController');
