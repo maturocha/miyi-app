@@ -21,13 +21,27 @@ use Illuminate\Support\Facades\DB;
 class DeliveryLedgerService
 {
     /**
+     * Fecha de los movimientos: la del reparto (delivery_date), no la de
+     * finalización/cierre. Se fija a mediodía para que un desfase de timezone
+     * no corra el día al mostrarla. Fallback a finished_at/now() sin delivery_date.
+     */
+    private function occurredAtFor(Delivery $delivery)
+    {
+        if ($delivery->delivery_date) {
+            return $delivery->delivery_date->copy()->setTime(12, 0, 0);
+        }
+
+        return $delivery->finished_at ?: now();
+    }
+
+    /**
      * Cargo por pedido en reparto: pending hasta que el reparto se cierre.
      */
     public function createChargesForFinishedDelivery(Delivery $delivery): void
     {
         $delivery->load(['deliveryOrders.order']);
 
-        $occurredAt = $delivery->finished_at ?: now();
+        $occurredAt = $this->occurredAtFor($delivery);
 
         DB::transaction(function () use ($delivery, $occurredAt) {
             $processedOrderIds = [];
@@ -84,7 +98,7 @@ class DeliveryLedgerService
     {
         $delivery->load(['deliveryOrders.order.customer', 'deliveryOrders.payments']);
 
-        $occurredAt = $delivery->finished_at ?: now();
+        $occurredAt = $this->occurredAtFor($delivery);
 
         $existingEntryIds = AccountEntry::where('source_type', 'delivery_orders')
             ->whereIn('source_id', $delivery->deliveryOrders->pluck('id'))

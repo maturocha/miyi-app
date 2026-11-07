@@ -129,7 +129,7 @@ class CustomersController extends Controller
         if (!$customer) {
             return response()->json(['message' => 'Customer not found'], 404);
         }
-        $query = AccountEntry::where('customer_id', $id)->with(['paymentMethods', 'createdByUser'])->orderByDesc('occurred_at');
+        $query = AccountEntry::where('customer_id', $id)->with(['paymentMethods', 'createdByUser'])->orderByDesc('occurred_at')->orderByDesc('id');
         if ($request->filled('date_from')) {
             $query->where('occurred_at', '>=', $request->input('date_from'));
         }
