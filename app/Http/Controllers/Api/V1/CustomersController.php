@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\Customer;
+use App\Models\Enums\CustomerType;
 use App\Models\Order;
 use App\Http\Controllers\Concerns\RespondsWithOptions;
 use App\Http\Resources\AccountEntryResource;
@@ -80,6 +81,14 @@ class CustomersController extends Controller
      */
     public function store(Request $request) : JsonResponse
     {
+
+        if ($request->has('type')) {
+            $request->merge(['type' => CustomerType::fromLegacy($request->input('type'))]);
+        }
+
+        $request->validate([
+            'type' => 'sometimes|required|in:' . implode(',', CustomerType::all()),
+        ]);
 
         $values = $request->all();
 
@@ -211,8 +220,16 @@ class CustomersController extends Controller
     public function update(Request $request, Customer $customer) : JsonResponse
     {
 
+        if ($request->has('type')) {
+            $request->merge(['type' => CustomerType::fromLegacy($request->input('type'))]);
+        }
+
+        $request->validate([
+            'type' => 'sometimes|required|in:' . implode(',', CustomerType::all()),
+        ]);
+
         $attributes = $request->all();
-        
+
         $customer->fill($attributes);
         $customer->update();
 
