@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Helpers\AccountEntrySourceHelper;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class AccountEntryResource extends JsonResource
@@ -40,6 +41,13 @@ class AccountEntryResource extends JsonResource
                 ];
             }),
             'validation_status' => $this->validation_status,
+            // Solo presente cuando el controller lo calculó (API del cliente);
+            // el listado global /account-entries no lo manda.
+            'running_balance' => $this->when($this->hasRunningBalance(), function () {
+                $balance = $this->resource->getAttribute('running_balance');
+
+                return $balance !== null ? round((float) $balance, 2) : null;
+            }),
             'balance_at_entry' => $this->balance_at_entry !== null ? (float) $this->balance_at_entry : null,
             'payment_methods' => $this->when($this->relationLoaded('paymentMethods'), function () {
                 return $this->paymentMethods->map(function ($pm) {
@@ -54,5 +62,11 @@ class AccountEntryResource extends JsonResource
             'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
             'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,
         ];
+    }
+
+    private function hasRunningBalance(): bool
+    {
+        return $this->resource instanceof Model
+            && array_key_exists('running_balance', $this->resource->getAttributes());
     }
 }

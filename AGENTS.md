@@ -38,13 +38,17 @@ docker compose -f docker-compose.local.yml run --rm app composer install
 # Artisan
 docker compose -f docker-compose.local.yml exec app php artisan migrate
 docker compose -f docker-compose.local.yml exec app php artisan optimize:clear
+
+# Tests (PHPUnit; siempre contra SQLite en memoria, nunca contra una base real)
+docker compose -f docker-compose.local.yml exec app vendor/bin/phpunit
 ```
 
 ## Architecture notes
 
 - HTTP API under `/api/v1/...` (see `routes/api.php`). Controllers use legacy string actions; `RouteServiceProvider` sets `$namespace = 'App\Http\Controllers'`.
 - Business logic in `app/Services/`, policies in `app/Policies/`, observers in `app/Observers/` (registered in `AppServiceProvider`).
-- **Removed**: Telescope, Spatie Backup cron, S3 flysystem adapter, PHPUnit test suite, dev-only packages (Ignition, Collision, Faker, etc.).
+- **Removed**: Telescope, Spatie Backup cron, S3 flysystem adapter, dev-only packages (Ignition, Collision, Faker, etc.).
+- **Tests**: `tests/Feature` with PHPUnit 9 (`require-dev`). The base schema (users, customers, orders…) is not in `database/migrations`, so tests build a minimal schema in `tests/Concerns/BuildsLedgerSchema.php` on SQLite `:memory:`; `Tests\TestCase` refuses to run against any other database.
 
 ## What not to churn
 
