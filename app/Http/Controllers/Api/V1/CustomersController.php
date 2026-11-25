@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\AccountEntryRunningBalanceHelper;
 use App\Helpers\AccountEntrySourceHelper;
 use App\Models\AccountEntry;
 use App\Models\Customer;
@@ -143,6 +144,7 @@ class CustomersController extends Controller
         $perPage = $this->perPage($request, 20, 100);
         $paginator = $query->paginate($perPage);
         AccountEntrySourceHelper::preload($paginator->getCollection());
+        AccountEntryRunningBalanceHelper::attach($paginator->getCollection());
         $paginator->getCollection()->transform(function ($entry) {
             return new AccountEntryResource($entry);
         });

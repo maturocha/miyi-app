@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\AccountEntryRunningBalanceHelper;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class CustomerResource extends JsonResource
@@ -58,16 +59,27 @@ class CustomerResource extends JsonResource
                 }),
             ],
             'account_entries' => [
-                'data' => $this->resource->accountEntries()
-                    ->with(['paymentMethods', 'createdByUser'])
-                    ->orderByDesc('occurred_at')
-                    ->take(5)
-                    ->get()
-                    ->map(function ($entry) {
-                        return new AccountEntryResource($entry);
-                    }),
+                'data' => $this->recentAccountEntries(),
                 'total' => $this->resource->accountEntries()->count(),
             ],
         ];
+    }
+
+    /**
+     * Últimos 5 movimientos (orden canónico inverso) con su saldo corrido.
+     */
+    private function recentAccountEntries()
+    {
+        $entries = $this->resource->accountEntries()
+            ->with(['paymentMethods', 'createdByUser'])
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->take(5)
+            ->get();
+        AccountEntryRunningBalanceHelper::attach($entries);
+
+        return $entries->map(function ($entry) {
+            return new AccountEntryResource($entry);
+        });
     }
 }
