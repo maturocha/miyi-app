@@ -19,6 +19,12 @@ class Order extends Model
     'print_status', 'total_bruto', 'delivery_cost', 'payment_method','discount', 'status'
   ];
 
+  // Número en el JSON con cualquier driver (el front espera número, no string).
+  protected $casts = [
+    'total_bruto' => 'float',
+    'delivery_cost' => 'float',
+  ];
+
   public function details(): HasMany
   {
     return $this->hasMany(Order_details::class, 'id_order', 'id');

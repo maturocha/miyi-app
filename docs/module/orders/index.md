@@ -75,6 +75,10 @@ Todos bajo `/api/v1`, con `auth:api`.
 
 `delivery` solo aparece si `deliveries` viene cargado (hoy, solo en el show).
 
+### Totales
+
+`total_bruto` saturaba en 999999.99 (columna `DOUBLE(8,2)`). Migración, backfill y auditoría de totales: [totales.md](totales.md).
+
 ### Visibilidad del listado
 
 `OrdersController::paginatedQuery`: admin (1) y **repartidor (3)** ven todos los pedidos. El resto de los roles (**incluida administración, 4**) ve solo los que cargó (`id_user`). ⚠️ A confirmar si administración debería ver todos.
