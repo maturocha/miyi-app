@@ -18,7 +18,7 @@ Además, `Order` castea `total_bruto` y `delivery_cost` a `float`, así que viaj
 La migración de backfill:
 - **no** toca `total`, ni cargos o asientos de cuenta corriente, ni saldos, ni `updated_at`. Usa query builder (`DB::table`): sin observers, sin timestamps, sin `recalculateTotals()` ni `syncPendingCharge()`.
 - **no** toca pedidos anteriores a 2025 (lógica histórica) ni pedidos sin líneas (no hay de dónde sacar el valor).
-- trabaja en chunks de 500 pedidos, cada chunk en su transacción. No es un único `UPDATE ... JOIN` porque no es portable a SQLite (tests) y cada pedido lleva su propio valor.
+- es **un único `UPDATE`** con subconsulta correlacionada (la suma de líneas de cada pedido), portable a MySQL/MariaDB y SQLite. Es atómico: corrige todo o nada. Usa el índice `order_details.id_order`. Los pedidos sin líneas quedan afuera porque la subconsulta da `NULL`. No lleva un `EXISTS` aparte porque en MariaDB se planifica como semi-join materializado y es mucho más lento.
 - falla antes de escribir si la columna sigue en `DOUBLE(8,2)`, porque volvería a recortar. Corre después del ensanche por orden de nombre.
 - es idempotente: una segunda corrida corrige 0.
 - tiene `down()` no-op: no hay forma segura de revertir (el valor anterior era el dato recortado o incorrecto).
@@ -27,9 +27,9 @@ La migración de backfill:
 
 `php artisan migrate` corre **las dos migraciones juntas**.
 
-Tiempo medido en una copia de la base local (67031 pedidos, MariaDB 10.5):
-- Ensanche: **3 ms**. En MariaDB 10.5 es un cambio de metadatos (mismo almacenamiento de 8 bytes), sin reconstruir la tabla. Si el motor de prod no pudiera hacerlo en el lugar, con copia forzada (`ALGORITHM=COPY`) tardó **0.46 s**, bloqueando escrituras en `orders` ese tiempo.
-- Backfill: **~130 ms** para 240 pedidos.
+Tiempo medido en una copia de la base de prod (67484 pedidos, MariaDB 10.5):
+- Ensanche: **3-5 ms**. En MariaDB 10.5 es un cambio de metadatos (mismo almacenamiento de 8 bytes), sin reconstruir la tabla. Si el motor de prod no pudiera hacerlo en el lugar, con copia forzada (`ALGORITHM=COPY`) tardó **0.46 s**, bloqueando escrituras en `orders` ese tiempo.
+- Backfill: **~120 ms** para 249 pedidos.
 
 Pasos:
 1. Antes del deploy, correr las consultas 1 a 3 de abajo y guardar los números. La 3 es exactamente lo que va a corregir el backfill.
@@ -74,10 +74,10 @@ SELECT o.id, o.date, o.status, o.total,
  ORDER BY o.id;
 ```
 
-## Resultado en una copia de la base local (2026-11-28)
+## Resultado en una copia de la base de prod (2026-11-28)
 
-Copia restaurada al estado previo (columna `DOUBLE(8,2)`, 141 saturados), con `php artisan migrate`:
-- El backfill corrigió **240 pedidos** (140 saturados de 2025 en adelante y 100 de 2025 con `total_bruto` de más, en muchos el doble). Volver a correrla corrige 0.
+Copia temporal de la base (columna `DOUBLE(8,2)`, 150 saturados: 1 de 2024, 46 de 2025 y 103 de 2026), con `php artisan migrate`:
+- El backfill corrigió **249 pedidos** (149 saturados de 2025 en adelante y 100 de 2025 con `total_bruto` de más, en muchos el doble). Volver a correrla corrige 0.
 - Queda 1 saturado, de 2024-10-28, sin tocar por regla.
 - Pedido 73360: `total_bruto` 999999.99 → 1124556.81.
 - Checksums de `orders.total`/`updated_at`, `account_entries` y `customers.current_balance`: **idénticos** antes y después.

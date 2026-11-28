@@ -18,12 +18,10 @@ use Illuminate\Support\Facades\DB;
  * - No toca pedidos anteriores a 2025 (lógica histórica) ni pedidos sin líneas
  *   (no hay de dónde sacar el valor).
  *
- * Por qué así y no un único UPDATE ... JOIN: el UPDATE con join de MySQL no es
- * portable a SQLite (tests), y cada pedido lleva su propio valor. Se seleccionan
- * los candidatos con un join a la suma de líneas (una consulta por chunk) y se
- * actualiza por id, en chunks de CHUNK pedidos, cada chunk en su transacción.
- * El volumen es chico (cientos de pedidos): el costo lo domina la consulta de
- * selección, no los UPDATE.
+ * Es un único UPDATE con subconsulta correlacionada (la suma de líneas de cada
+ * pedido), portable a MySQL/MariaDB y SQLite (tests). Es atómico: corrige todo o
+ * nada. La subconsulta usa el índice de order_details.id_order (en una copia de
+ * prod con 67k pedidos, el filtro tarda ~0.2 s).
  *
  * Idempotente: un pedido corregido deja de cumplir la condición; volver a
  * correrla no cambia nada.
@@ -31,24 +29,27 @@ use Illuminate\Support\Facades\DB;
 class BackfillOrdersTotalBruto extends Migration
 {
     private const SINCE = '2025-01-01';
-    private const TOLERANCE = 0.02;
-    private const CHUNK = 500;
+
+    /**
+     * Tolerancia como literal numérico (constante, no input): con un binding,
+     * PDO la manda como texto y SQLite compara número > texto como falso.
+     */
+    private const TOLERANCE = '0.02';
+
+    private const LINES_SUM = '(SELECT ROUND(SUM(order_details.price_final), 2)
+        FROM order_details WHERE order_details.id_order = orders.id)';
 
     public function up()
     {
         $this->assertColumnIsWide();
 
-        $updated = 0;
-
-        $this->candidates()->chunkById(self::CHUNK, function ($rows) use (&$updated) {
-            DB::transaction(function () use ($rows, &$updated) {
-                foreach ($rows as $row) {
-                    $updated += DB::table('orders')
-                        ->where('id', $row->id)
-                        ->update(['total_bruto' => round((float) $row->lines_sum, 2)]);
-                }
-            });
-        }, 'o.id', 'id');
+        $updated = DB::table('orders')
+            ->where('orders.date', '>=', self::SINCE)
+            // Sin líneas, la subconsulta da NULL y ABS(... - NULL) > x es NULL:
+            // esos pedidos quedan afuera sin un EXISTS aparte (en MariaDB un
+            // EXISTS acá se planifica como semi-join materializado y es mucho más lento).
+            ->whereRaw('ABS(orders.total_bruto - ' . self::LINES_SUM . ') > ' . self::TOLERANCE)
+            ->update(['total_bruto' => DB::raw(self::LINES_SUM)]);
 
         if (!app()->runningUnitTests()) {
             echo "Backfill total_bruto: $updated pedido(s) corregido(s).\n";
@@ -60,26 +61,6 @@ class BackfillOrdersTotalBruto extends Migration
         // No-op: no hay forma segura de revertir. El valor anterior era un dato
         // recortado (999999.99) o incorrecto y no se guardó; volver a escribirlo
         // sería reintroducir el error. total y los cargos nunca se tocaron.
-    }
-
-    /**
-     * Pedidos a corregir: { id, lines_sum }.
-     */
-    private function candidates()
-    {
-        $lines = DB::table('order_details')
-            ->select('id_order', DB::raw('ROUND(SUM(price_final), 2) as lines_sum'))
-            ->groupBy('id_order');
-
-        // Tolerancia como literal numérico (constante, no input): con un binding,
-        // PDO la manda como texto y SQLite compara número > texto como falso.
-        $tolerance = number_format(self::TOLERANCE, 2, '.', '');
-
-        return DB::table('orders as o')
-            ->joinSub($lines, 'd', 'd.id_order', '=', 'o.id')
-            ->where('o.date', '>=', self::SINCE)
-            ->whereRaw("ABS(o.total_bruto - d.lines_sum) > $tolerance")
-            ->select('o.id', 'd.lines_sum');
     }
 
     /**
