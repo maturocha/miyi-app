@@ -51,7 +51,7 @@ Todos bajo `/api/v1`, con `auth:api`.
 |---|---|---|---|
 | GET | `/orders` | Listado (incluye `is_locked`, `was_delivered`) | Todos (ver visibilidad abajo) |
 | POST | `/orders` `{ id_customer }` | Crear cabecera | Todos |
-| GET | `/orders/{id}` | Detalle con líneas | Todos |
+| GET | `/orders/{id}` | Detalle con líneas, cliente y reparto (ver abajo) | Todos |
 | PUT | `/orders/{id}` | Editar cabecera | Todos (salvo bloqueado) |
 | PUT | `/orders/{id}/status` | Cambiar estado | Todos (salvo bloqueado) |
 | PUT | `/orders/bulk-status` | Estado en masa (omite bloqueados) | admin, ventas, administración |
@@ -62,6 +62,22 @@ Todos bajo `/api/v1`, con `auth:api`.
 | DELETE | `/details/{id}` | Quitar línea | Todos (salvo bloqueado) |
 
 "Bloqueado" = entregado en un reparto cerrado. Ver [reglas-con-reparto.md](reglas-con-reparto.md).
+
+### Detalle (`GET /orders/{id}`)
+
+`OrderResource` con `user`, `details`, `customer` y `deliveries` cargados. Además de los campos de siempre:
+
+- `created_at`: ISO 8601.
+- `customer`: `{ id, name, type, address, cellphone, neighborhood, zone }` (barrio y zona por nombre; `null` si el cliente no tiene barrio).
+- `delivery`: `null` si el pedido nunca estuvo en un reparto. Si estuvo en varios, se toma el reparto donde quedó **entregado**; si no hay, el más reciente (`delivery_date`, desempate por id). Ver `Order::primaryDelivery`.
+  - Con permiso de ver ese reparto (`DeliveriesController::canViewDetail`: admin, Administración o dueño): `{ id, delivery_date, status, owner: { id, name }, delivery_status, delivered_at, failure_reason }` (`delivery_status`, `delivered_at` y `failure_reason` vienen del pivot `delivery_orders`).
+  - Sin permiso: solo `{ id, delivery_date, status }`.
+
+`delivery` solo aparece si `deliveries` viene cargado (hoy, solo en el show).
+
+### Totales
+
+`total_bruto` saturaba en 999999.99 (columna `DOUBLE(8,2)`). Dos migraciones lo arreglan en el deploy (ensanche y backfill de `total_bruto`). Las consultas de solo lectura, incluida la de pedidos con `total` descuadrado, están en [totales.md](totales.md).
 
 ### Visibilidad del listado
 

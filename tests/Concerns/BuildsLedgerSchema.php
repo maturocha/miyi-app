@@ -64,6 +64,9 @@ trait BuildsLedgerSchema
             $table->date('date');
             $table->decimal('total', 12, 2)->default(0);
             $table->decimal('discount', 5, 2)->default(0);
+            // DOUBLE sin precisión, como en producción tras 2026_11_28_100000.
+            $table->double('total_bruto')->default(0);
+            $table->double('delivery_cost')->default(0);
             $table->timestamps();
         });
 
@@ -83,6 +86,32 @@ trait BuildsLedgerSchema
         Schema::table('account_entries', function (Blueprint $table) {
             $table->string('idempotency_key', 64)->nullable();
         });
+    }
+
+    /**
+     * Ubicación del cliente (barrio/zona) y repartos, para los endpoints que
+     * exponen el reparto de un pedido. Repartos con sus migraciones reales.
+     */
+    protected function buildDeliverySchema(): void
+    {
+        Schema::create('zones', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('name');
+            $table->string('code')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('neighborhoods', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('name');
+            $table->unsignedInteger('id_zone')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        $this->runMigration('2026_02_07_100000_create_deliveries_table.php', 'CreateDeliveriesTable');
+        $this->runMigration('2026_02_07_100001_create_delivery_orders_table.php', 'CreateDeliveryOrdersTable');
     }
 
     private function runMigration(string $file, string $class): void

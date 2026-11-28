@@ -52,11 +52,16 @@ class OrdersController extends Controller
     {
         $order = Order::with([
             'user:id,name',
-            'customer:id,name,address,time_visit,cellphone,type',
-            'customer.neighborhood:id,name',
+            // Las FK (id_neighborhood, id_zone) tienen que estar en el select
+            // para que neighborhood/zone resuelvan.
+            'customer:id,name,address,time_visit,cellphone,type,id_neighborhood',
+            'customer.neighborhood:id,name,id_zone',
             'customer.neighborhood.zone:id,name',
             'details.promotion:id,name,type',
-            'details.product'
+            'details.product',
+            // `delivery` del Resource (solo en show): repartos con su pivot y dueño.
+            'deliveries:deliveries.id,deliveries.delivery_date,deliveries.status,deliveries.owner_user_id',
+            'deliveries.owner:id,name',
         ])->find($id);
         
         if (!$order) {

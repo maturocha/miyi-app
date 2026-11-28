@@ -19,6 +19,12 @@ class Order extends Model
     'print_status', 'total_bruto', 'delivery_cost', 'payment_method','discount', 'status'
   ];
 
+  // Número en el JSON con cualquier driver (el front espera número, no string).
+  protected $casts = [
+    'total_bruto' => 'float',
+    'delivery_cost' => 'float',
+  ];
+
   public function details(): HasMany
   {
     return $this->hasMany(Order_details::class, 'id_order', 'id');
@@ -52,6 +58,35 @@ class Order extends Model
         'failure_reason',
       ])
       ->withTimestamps();
+  }
+
+  /**
+   * Reparto "principal" del pedido, desde `deliveries` YA cargado (sin queries):
+   * el reparto donde quedó entregado (si hubiera más de uno, el más reciente);
+   * si nunca se entregó, el más reciente. Recencia: delivery_date y luego id.
+   * Devuelve null si no tiene repartos o si la relación no está cargada.
+   */
+  public function primaryDelivery(): ?Delivery
+  {
+    if (!$this->relationLoaded('deliveries') || $this->deliveries->isEmpty()) {
+      return null;
+    }
+
+    $byRecency = $this->deliveries->sort(function (Delivery $a, Delivery $b) {
+      $dateA = $a->delivery_date ? $a->delivery_date->format('Y-m-d') : '';
+      $dateB = $b->delivery_date ? $b->delivery_date->format('Y-m-d') : '';
+      if ($dateA !== $dateB) {
+        return strcmp($dateB, $dateA);
+      }
+      return (int) $b->id <=> (int) $a->id;
+    })->values();
+
+    $delivered = $byRecency->first(function (Delivery $delivery) {
+      return $delivery->pivot
+        && $delivery->pivot->delivery_status === \App\Models\Enums\DeliveryOrderStatus::DELIVERED;
+    });
+
+    return $delivered ?: $byRecency->first();
   }
 
   public function getRecordTitle()

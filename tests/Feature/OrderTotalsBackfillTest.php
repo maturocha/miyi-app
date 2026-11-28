@@ -1,0 +1,157 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Enums\AccountEntryValidationStatus;
+use App\Models\Order;
+use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\BuildsLedgerSchema;
+use Tests\TestCase;
+
+/**
+ * total_bruto > 999999.99 (antes DOUBLE(8,2) saturaba) y el backfill de
+ * total_bruto (migración 2026_11_28_100001).
+ */
+class OrderTotalsBackfillTest extends TestCase
+{
+    use BuildsLedgerSchema;
+
+    /** @var int */
+    private $adminId;
+
+    /** @var int */
+    private $customerId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->buildLedgerSchema();
+        $this->buildDeliverySchema();
+        $this->adminId = $this->createUser(1);
+        $this->customerId = $this->createCustomer();
+        DB::table('products')->insert(['id' => 1, 'name' => 'Producto']);
+        // El show carga details.product (SoftDeletes) y details.promotion.
+        Schema::table('products', function (Blueprint $table) {
+            $table->softDeletes();
+        });
+        Schema::create('promotions', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('name');
+            $table->string('type')->nullable();
+        });
+    }
+
+    /**
+     * @param float[] $lines price_final de cada línea
+     */
+    private function createOrder(string $date, float $total, float $totalBruto, array $lines): int
+    {
+        $id = (int) DB::table('orders')->insertGetId([
+            'id_customer' => $this->customerId,
+            'id_user' => $this->adminId,
+            'date' => $date,
+            'total' => $total,
+            'total_bruto' => $totalBruto,
+            'created_at' => '2026-01-01 00:00:00',
+            'updated_at' => '2026-01-01 00:00:00',
+        ]);
+        foreach ($lines as $price) {
+            DB::table('order_details')->insert(['id_order' => $id, 'id_product' => 1, 'price_final' => $price]);
+        }
+
+        return $id;
+    }
+
+    private function createCharge(int $orderId, string $amount, string $status): void
+    {
+        DB::table('account_entries')->insert([
+            'customer_id' => $this->customerId,
+            'type' => 'charge',
+            'direction' => 'debit',
+            'amount' => $amount,
+            'occurred_at' => '2026-01-01 10:00:00',
+            'source_type' => 'orders',
+            'source_id' => $orderId,
+            'validation_status' => $status,
+            'created_at' => '2026-01-01 10:00:00',
+            'updated_at' => '2026-01-01 10:00:00',
+        ]);
+    }
+
+    private function snapshot(): array
+    {
+        return [
+            'orders' => DB::table('orders')->orderBy('id')->get(['id', 'total', 'updated_at'])->toArray(),
+            'account_entries' => DB::table('account_entries')->orderBy('id')->get()->toArray(),
+            'customers' => DB::table('customers')->orderBy('id')->get(['id', 'current_balance'])->toArray(),
+        ];
+    }
+
+    private function totalBruto(int $orderId): float
+    {
+        return (float) DB::table('orders')->where('id', $orderId)->value('total_bruto');
+    }
+
+    public function test_order_over_999999_99_stores_and_returns_total_bruto_as_number(): void
+    {
+        $orderId = $this->createOrder('2026-11-06', 0, 0, [600000.50, 524556.31]);
+
+        Order::findOrFail($orderId)->recalculateTotals();
+
+        $this->actingAs(User::findOrFail($this->adminId), 'api');
+        $response = $this->getJson('/api/v1/orders/'.$orderId)->assertOk();
+
+        $this->assertIsFloat($response->json('data.total_bruto'), 'total_bruto viaja como número, no string');
+        $this->assertSame(1124556.81, $response->json('data.total_bruto'));
+        $this->assertEquals(1124556.81, $response->json('data.total'));
+        $this->assertStringContainsString('"total_bruto":1124556.81', $response->getContent());
+    }
+
+    private function runBackfillMigrations(): void
+    {
+        // En SQLite el ensanche es no-op; se corre igual para respetar el orden del deploy.
+        $this->runMigration('2026_11_28_100000_widen_orders_total_bruto_and_delivery_cost.php', 'WidenOrdersTotalBrutoAndDeliveryCost');
+        $this->runMigration('2026_11_28_100001_backfill_orders_total_bruto.php', 'BackfillOrdersTotalBruto');
+    }
+
+    public function test_backfill_migration_fixes_only_total_bruto_and_leaves_totals_and_charges_untouched(): void
+    {
+        $saturated = $this->createOrder('2026-11-06', 1124556.81, 999999.99, [600000.50, 524556.31]);
+        $saturated2025 = $this->createOrder('2025-05-02', 2035089.03, 999999.99, [2035089.03]);
+        $doubled = $this->createOrder('2025-03-10', 9900, 19800, [9900]);
+        $ok = $this->createOrder('2026-02-01', 1000, 1000, [400, 600]);
+        $withinTolerance = $this->createOrder('2026-02-02', 1000.01, 1000.01, [1000]);
+        $before2025 = $this->createOrder('2024-12-30', 1500000, 999999.99, [1500000]);
+        $noLines = $this->createOrder('2026-01-05', 42135, 42135, []);
+        $this->createCharge($saturated, '1124556.81', AccountEntryValidationStatus::VALIDATED);
+        $this->createCharge($doubled, '9900.00', AccountEntryValidationStatus::PENDING);
+
+        $before = $this->snapshot();
+
+        $this->runBackfillMigrations();
+
+        $this->assertSame(1124556.81, $this->totalBruto($saturated));
+        $this->assertSame(2035089.03, $this->totalBruto($saturated2025));
+        $this->assertSame(9900.0, $this->totalBruto($doubled));
+        $this->assertSame(1000.0, $this->totalBruto($ok));
+        $this->assertSame(1000.01, $this->totalBruto($withinTolerance), 'dentro de la tolerancia no se toca');
+        $this->assertSame(999999.99, $this->totalBruto($before2025), 'antes de 2025 no se toca');
+        $this->assertSame(42135.0, $this->totalBruto($noLines), 'sin líneas no se toca');
+
+        // Ni total, ni updated_at, ni cargos, ni saldos.
+        $this->assertEquals($before, $this->snapshot());
+
+        // Idempotente: una segunda corrida no cambia nada.
+        $afterFirst = DB::table('orders')->orderBy('id')->get()->toArray();
+        $this->runBackfillMigrations();
+        $this->assertEquals($afterFirst, DB::table('orders')->orderBy('id')->get()->toArray());
+
+        // Y el show devuelve el valor corregido como número.
+        $this->actingAs(User::findOrFail($this->adminId), 'api');
+        $json = $this->getJson('/api/v1/orders/'.$saturated)->assertOk()->json('data');
+        $this->assertSame(1124556.81, $json['total_bruto']);
+    }
+}
