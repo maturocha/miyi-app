@@ -77,7 +77,7 @@ Todos bajo `/api/v1`, con `auth:api`.
 
 ### Totales
 
-`total_bruto` saturaba en 999999.99 (columna `DOUBLE(8,2)`). Migración, backfill y auditoría de totales: [totales.md](totales.md).
+`total_bruto` saturaba en 999999.99 (columna `DOUBLE(8,2)`). Dos migraciones lo arreglan en el deploy (ensanche y backfill de `total_bruto`), y hay una auditoría de solo lectura de `total` (`orders:audit-totals`): ver [totales.md](totales.md).
 
 ### Visibilidad del listado
 

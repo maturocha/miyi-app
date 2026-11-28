@@ -9,8 +9,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Consultas (solo lectura) de pedidos cuyos importes no cierran con sus líneas.
- * Las usan `orders:backfill-total-bruto` y `orders:audit-totals`.
+ * Consulta (solo lectura) de pedidos cuyo total no cierra con sus líneas.
+ * La usa `orders:audit-totals`. No corrige nada: el total mueve plata.
  *
  * Solo pedidos desde SINCE: los anteriores tienen lógica histórica y no se tocan.
  */
@@ -20,27 +20,6 @@ class OrderTotalsAuditService
 
     /** Diferencia tolerada por redondeo. */
     public const TOLERANCE = 0.02;
-
-    /** Tope del viejo DOUBLE(8,2) de orders.total_bruto. */
-    public const SATURATED = 999999.99;
-
-    /**
-     * Pedidos (desde SINCE, con líneas) cuyo total_bruto difiere de la suma de
-     * sus líneas en más de TOLERANCE. Incluye los saturados en 999999.99.
-     * Los pedidos sin líneas quedan afuera: no hay de dónde sacar el valor.
-     *
-     * @return Collection de objetos { id, date, total_bruto, lines_sum }
-     */
-    public function totalBrutoMismatches(): Collection
-    {
-        return DB::table('orders as o')
-            ->joinSub($this->linesSubquery(), 'd', 'd.id_order', '=', 'o.id')
-            ->where('o.date', '>=', self::SINCE)
-            ->whereRaw('ABS(o.total_bruto - ROUND(d.lines_sum, 2)) > ' . self::tolerance())
-            ->orderBy('o.id')
-            ->select('o.id', 'o.date', 'o.total_bruto', DB::raw('ROUND(d.lines_sum, 2) as lines_sum'))
-            ->get();
-    }
 
     /**
      * Pedidos (desde SINCE) cuyo total no cierra con

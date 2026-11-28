@@ -16,7 +16,7 @@ use Tests\TestCase;
 
 /**
  * total_bruto > 999999.99 (antes DOUBLE(8,2) saturaba), el backfill de
- * total_bruto (`orders:backfill-total-bruto`) y la auditoría de solo lectura
+ * total_bruto (migración 2026_11_28_100001) y la auditoría de solo lectura
  * de totales (`orders:audit-totals`).
  */
 class OrderTotalsBackfillTest extends TestCase
@@ -124,11 +124,20 @@ class OrderTotalsBackfillTest extends TestCase
         $this->assertStringContainsString('"total_bruto":1124556.81', $response->getContent());
     }
 
-    public function test_backfill_fixes_only_total_bruto_and_leaves_totals_and_charges_untouched(): void
+    private function runBackfillMigrations(): void
+    {
+        // En SQLite el ensanche es no-op; se corre igual para respetar el orden del deploy.
+        $this->runMigration('2026_11_28_100000_widen_orders_total_bruto_and_delivery_cost.php', 'WidenOrdersTotalBrutoAndDeliveryCost');
+        $this->runMigration('2026_11_28_100001_backfill_orders_total_bruto.php', 'BackfillOrdersTotalBruto');
+    }
+
+    public function test_backfill_migration_fixes_only_total_bruto_and_leaves_totals_and_charges_untouched(): void
     {
         $saturated = $this->createOrder('2026-11-06', 1124556.81, 999999.99, [600000.50, 524556.31]);
+        $saturated2025 = $this->createOrder('2025-05-02', 2035089.03, 999999.99, [2035089.03]);
         $doubled = $this->createOrder('2025-03-10', 9900, 19800, [9900]);
         $ok = $this->createOrder('2026-02-01', 1000, 1000, [400, 600]);
+        $withinTolerance = $this->createOrder('2026-02-02', 1000.01, 1000.01, [1000]);
         $before2025 = $this->createOrder('2024-12-30', 1500000, 999999.99, [1500000]);
         $noLines = $this->createOrder('2026-01-05', 42135, 42135, []);
         $this->createCharge($saturated, '1124556.81', AccountEntryValidationStatus::VALIDATED);
@@ -136,27 +145,28 @@ class OrderTotalsBackfillTest extends TestCase
 
         $before = $this->snapshot();
 
-        [$code, $output] = $this->runCommand('orders:backfill-total-bruto', ['--dry-run' => true]);
-        $this->assertSame(0, $code);
-        $this->assertStringContainsString('[dry-run] Cambiaría 2 pedido(s) desde 2025-01-01 (1 saturado(s) en 999999.99).', $output);
-        $this->assertSame(999999.99, $this->totalBruto($saturated), 'dry-run no escribe');
-
-        [$code, $output] = $this->runCommand('orders:backfill-total-bruto');
-        $this->assertSame(0, $code);
-        $this->assertStringContainsString('Listo: 2 pedido(s) actualizados.', $output);
+        $this->runBackfillMigrations();
 
         $this->assertSame(1124556.81, $this->totalBruto($saturated));
+        $this->assertSame(2035089.03, $this->totalBruto($saturated2025));
         $this->assertSame(9900.0, $this->totalBruto($doubled));
         $this->assertSame(1000.0, $this->totalBruto($ok));
+        $this->assertSame(1000.01, $this->totalBruto($withinTolerance), 'dentro de la tolerancia no se toca');
         $this->assertSame(999999.99, $this->totalBruto($before2025), 'antes de 2025 no se toca');
         $this->assertSame(42135.0, $this->totalBruto($noLines), 'sin líneas no se toca');
 
         // Ni total, ni updated_at, ni cargos, ni saldos.
         $this->assertEquals($before, $this->snapshot());
 
-        // Idempotente.
-        [, $output] = $this->runCommand('orders:backfill-total-bruto', ['--dry-run' => true]);
-        $this->assertStringContainsString('[dry-run] Cambiaría 0 pedido(s)', $output);
+        // Idempotente: una segunda corrida no cambia nada.
+        $afterFirst = DB::table('orders')->orderBy('id')->get()->toArray();
+        $this->runBackfillMigrations();
+        $this->assertEquals($afterFirst, DB::table('orders')->orderBy('id')->get()->toArray());
+
+        // Y el show devuelve el valor corregido como número.
+        $this->actingAs(User::findOrFail($this->adminId), 'api');
+        $json = $this->getJson('/api/v1/orders/'.$saturated)->assertOk()->json('data');
+        $this->assertSame(1124556.81, $json['total_bruto']);
     }
 
     public function test_audit_lists_orders_whose_total_does_not_add_up_without_writing(): void

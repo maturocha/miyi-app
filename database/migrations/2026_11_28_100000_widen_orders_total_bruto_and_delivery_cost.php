@@ -11,11 +11,12 @@ use Illuminate\Support\Facades\DB;
  * fija, igual que orders.total.
  *
  * - DOUBLE y no DECIMAL: PDO devuelve DECIMAL como string y el front espera número.
- * - SQL directo (como 2026_10_18_100000_convert_customers_type...) y no
- *   ->change() de doctrine/dbal: dbal 2 no distingue DOUBLE(8,2) de DOUBLE.
+ * - El ALTER es SQL directo (como 2026_10_18_100000_convert_customers_type...) y
+ *   no ->change() de doctrine/dbal: dbal 2 no distingue DOUBLE(8,2) de DOUBLE
+ *   (ambos son "float"), así que change() no garantiza quitar la precisión.
  * - Idempotente: si la columna ya es DOUBLE sin precisión, no hace nada.
- * - Solo esquema. La corrección de datos es aparte y manual:
- *   `php artisan orders:backfill-total-bruto --dry-run` (ver docs/module/orders/totales.md).
+ * - Solo esquema. Los datos los corrige la migración siguiente,
+ *   2026_11_28_100001_backfill_orders_total_bruto (ver docs/module/orders/totales.md).
  * - MODIFY reconstruye la tabla (ALTER con copia): bloquea escrituras en
  *   `orders` unos segundos; correr fuera del horario de carga.
  */
@@ -32,18 +33,15 @@ class WidenOrdersTotalBrutoAndDeliveryCost extends Migration
 
         $modifications = [];
         foreach (self::COLUMNS as $column) {
-            $info = DB::selectOne(
-                "SELECT COLUMN_TYPE
-                   FROM information_schema.COLUMNS
-                  WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME = 'orders'
-                    AND COLUMN_NAME = ?",
-                [$column]
-            );
-            if (!$info) {
+            $type = DB::table('information_schema.COLUMNS')
+                ->where('TABLE_SCHEMA', DB::getDatabaseName())
+                ->where('TABLE_NAME', 'orders')
+                ->where('COLUMN_NAME', $column)
+                ->value('COLUMN_TYPE');
+            if ($type === null) {
                 throw new \RuntimeException("orders.$column no existe; revisar antes de migrar.");
             }
-            if (strtolower($info->COLUMN_TYPE) !== 'double') {
+            if (strtolower($type) !== 'double') {
                 $modifications[] = "MODIFY $column DOUBLE NOT NULL DEFAULT 0";
             }
         }
