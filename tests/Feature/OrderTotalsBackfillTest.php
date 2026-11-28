@@ -3,21 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\Enums\AccountEntryValidationStatus;
-use App\Models\Enums\DeliveryOrderStatus;
-use App\Models\Enums\DeliveryStatus;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\BuildsLedgerSchema;
 use Tests\TestCase;
 
 /**
- * total_bruto > 999999.99 (antes DOUBLE(8,2) saturaba), el backfill de
- * total_bruto (migración 2026_11_28_100001) y la auditoría de solo lectura
- * de totales (`orders:audit-totals`).
+ * total_bruto > 999999.99 (antes DOUBLE(8,2) saturaba) y el backfill de
+ * total_bruto (migración 2026_11_28_100001).
  */
 class OrderTotalsBackfillTest extends TestCase
 {
@@ -48,18 +44,10 @@ class OrderTotalsBackfillTest extends TestCase
         });
     }
 
-    /** Corre un comando y devuelve [exit code, salida]. */
-    private function runCommand(string $command, array $params = []): array
-    {
-        $code = Artisan::call($command, $params);
-
-        return [$code, Artisan::output()];
-    }
-
     /**
      * @param float[] $lines price_final de cada línea
      */
-    private function createOrder(string $date, float $total, float $totalBruto, array $lines, float $discount = 0, float $deliveryCost = 0): int
+    private function createOrder(string $date, float $total, float $totalBruto, array $lines): int
     {
         $id = (int) DB::table('orders')->insertGetId([
             'id_customer' => $this->customerId,
@@ -67,8 +55,6 @@ class OrderTotalsBackfillTest extends TestCase
             'date' => $date,
             'total' => $total,
             'total_bruto' => $totalBruto,
-            'discount' => $discount,
-            'delivery_cost' => $deliveryCost,
             'created_at' => '2026-01-01 00:00:00',
             'updated_at' => '2026-01-01 00:00:00',
         ]);
@@ -167,50 +153,5 @@ class OrderTotalsBackfillTest extends TestCase
         $this->actingAs(User::findOrFail($this->adminId), 'api');
         $json = $this->getJson('/api/v1/orders/'.$saturated)->assertOk()->json('data');
         $this->assertSame(1124556.81, $json['total_bruto']);
-    }
-
-    public function test_audit_lists_orders_whose_total_does_not_add_up_without_writing(): void
-    {
-        // líneas 1000, 10% desc, envío 50 => esperado 950; total 1000 => descuadrado.
-        $off = $this->createOrder('2025-06-01', 1000, 1000, [1000], 10, 50);
-        $ok = $this->createOrder('2025-06-02', 950, 1000, [1000], 10, 50);
-        $old = $this->createOrder('2024-06-01', 1000, 1000, [1000], 10, 50);
-        $offLocked = $this->createOrder('2026-02-01', 500, 400, [400]);
-        $this->createCharge($offLocked, '500.00', AccountEntryValidationStatus::VALIDATED);
-        $deliveryId = DB::table('deliveries')->insertGetId([
-            'delivery_date' => '2026-02-01', 'status' => DeliveryStatus::CLOSED, 'owner_user_id' => $this->adminId,
-        ]);
-        DB::table('delivery_orders')->insert([
-            'delivery_id' => $deliveryId, 'order_id' => $offLocked, 'delivery_status' => DeliveryOrderStatus::DELIVERED,
-        ]);
-
-        $before = $this->snapshot();
-        $csv = tempnam(sys_get_temp_dir(), 'audit');
-
-        [$code, $output] = $this->runCommand('orders:audit-totals', ['--output' => $csv]);
-        $this->assertSame(0, $code);
-        $this->assertStringContainsString('2 pedido(s) desde 2025-01-01 con total descuadrado (> 0.02). Con cargo en cuenta corriente: 1. En reparto cerrado: 1.', $output);
-
-        $rows = array_map('str_getcsv', array_filter(explode("\n", file_get_contents($csv))));
-        unlink($csv);
-        $header = array_shift($rows);
-        $byId = [];
-        foreach ($rows as $row) {
-            $row = array_combine($header, $row);
-            $byId[(int) $row['id']] = $row;
-        }
-
-        $this->assertSame([$off, $offLocked], array_keys($byId));
-        $this->assertArrayNotHasKey($ok, $byId);
-        $this->assertArrayNotHasKey($old, $byId);
-        $this->assertEquals(950, $byId[$off]['total_esperado']);
-        $this->assertEquals(50, $byId[$off]['diferencia']);
-        $this->assertSame('0', $byId[$off]['cargos_cc']);
-        $this->assertSame('no', $byId[$off]['entregado_reparto_cerrado']);
-        $this->assertSame('1', $byId[$offLocked]['cargos_cc']);
-        $this->assertSame(AccountEntryValidationStatus::VALIDATED, $byId[$offLocked]['estado_cargos']);
-        $this->assertSame('si', $byId[$offLocked]['entregado_reparto_cerrado']);
-
-        $this->assertEquals($before, $this->snapshot(), 'la auditoría es de solo lectura');
     }
 }

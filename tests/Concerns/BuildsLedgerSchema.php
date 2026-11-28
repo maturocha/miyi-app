@@ -67,7 +67,6 @@ trait BuildsLedgerSchema
             // DOUBLE sin precisión, como en producción tras 2026_11_28_100000.
             $table->double('total_bruto')->default(0);
             $table->double('delivery_cost')->default(0);
-            $table->string('status', 50)->default('in_process');
             $table->timestamps();
         });
 

@@ -12,7 +12,6 @@ Además, en 2025 hay pedidos con `total_bruto` de más (en muchos, el doble de l
 |---|---|---|
 | Migración `2026_11_28_100000_widen_orders_total_bruto_and_delivery_cost` | `total_bruto` y `delivery_cost` pasan a `DOUBLE` sin precisión (como `total`). Solo esquema. Idempotente. `down()` no achica a propósito. | **Sí** |
 | Migración `2026_11_28_100001_backfill_orders_total_bruto` | `total_bruto = ROUND(SUM(price_final), 2)` en pedidos **desde 2025-01-01**, **con líneas**, cuyo `total_bruto` difiere de las líneas en más de 0.02 (incluye los saturados). | **Sí** |
-| `php artisan orders:audit-totals [--output=ruta.csv]` | **Solo lectura.** CSV de pedidos desde 2025 cuyo `total` no cierra. No corrige nada. | **No**: manual |
 
 Además, `Order` castea `total_bruto` y `delivery_cost` a `float`, así que viajan como número en el JSON con cualquier driver.
 
@@ -36,7 +35,7 @@ Pasos:
 1. Antes del deploy, correr las consultas 1 a 3 de abajo y guardar los números. La 3 es exactamente lo que va a corregir el backfill.
 2. Deploy con `php artisan migrate`. La salida imprime `Backfill total_bruto: N pedido(s) corregido(s).` y N debería coincidir con la consulta 3.
 3. Repetir las consultas 2 y 3: la 3 debe dar 0 filas y la 2 solo pedidos anteriores a 2025.
-4. `php artisan orders:audit-totals --output=/tmp/orders-totals.csv` y revisar a mano los descuadres. No se corrigen automáticamente: el total mueve plata.
+4. Correr la consulta 4 (solo lectura) y revisar a mano los pedidos con `total` descuadrado. No se corrigen automáticamente: el total mueve plata.
 
 ## Consultas de solo lectura (MySQL/MariaDB)
 
@@ -59,7 +58,7 @@ SELECT o.id, o.date, o.total_bruto, ROUND(d.lines_sum, 2) AS suma_lineas
    AND ABS(o.total_bruto - ROUND(d.lines_sum, 2)) > 0.02
  ORDER BY o.id;
 
--- 4) Totales descuadrados (= orders:audit-totals), con cargo y reparto cerrado
+-- 4) Totales descuadrados (desde 2025), con cargo en cuenta corriente y reparto cerrado. Solo lectura: se revisan a mano.
 SELECT o.id, o.date, o.status, o.total,
        ROUND(COALESCE(d.lines_sum, 0), 2) AS suma_lineas, o.discount, o.delivery_cost,
        ROUND(COALESCE(d.lines_sum, 0) + o.delivery_cost - COALESCE(d.lines_sum, 0) * o.discount / 100, 2) AS total_esperado,
@@ -82,4 +81,4 @@ Copia restaurada al estado previo (columna `DOUBLE(8,2)`, 141 saturados), con `p
 - Queda 1 saturado, de 2024-10-28, sin tocar por regla.
 - Pedido 73360: `total_bruto` 999999.99 → 1124556.81.
 - Checksums de `orders.total`/`updated_at`, `account_entries` y `customers.current_balance`: **idénticos** antes y después.
-- 39 pedidos con `total` descuadrado (`orders:audit-totals`): ninguno con cargo en cuenta corriente ni en reparto cerrado. No se corrigieron.
+- 39 pedidos con `total` descuadrado (consulta 4): ninguno con cargo en cuenta corriente ni en reparto cerrado. No se corrigieron.
